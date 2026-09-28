@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "type": "page",
+  "metadata": {
+    "id": "request-response-fixture",
+    "group": "API Guide",
+    "title": "Request and Response"
+  },
+  "children": [
+    {
+      "type": "row",
+      "attrs": {
+        "align": "start",
+        "split": "auto"
+      },
+      "children": [
+        {
+          "type": "request",
+          "attrs": {
+            "lang": "http",
+            "title": "Lookup"
+          },
+          "raw": "GET /api/items/42\nAccept: application/json"
+        },
+        {
+          "type": "response",
+          "attrs": {
+            "lang": "auto",
+            "status": "200"
+          },
+          "raw": "{\"id\":42,\"name\":\"Demo\"}"
+        }
+      ]
+    }
+  ]
+}

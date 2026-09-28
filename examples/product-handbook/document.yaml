@@ -1,0 +1,6 @@
+id: product-handbook
+title: Example Product Handbook
+theme: default
+pages:
+  - pages/01-overview.book.md
+  - pages/02-api.book.md
