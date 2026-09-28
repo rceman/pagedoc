@@ -2,13 +2,16 @@
 diagnostics.
 
 The authoritative layout path (ARCHITECTURE.md section 9): generated
-HTML/CSS is rendered by WeasyPrint, and fit/overflow diagnostics are
-measured from the rendered box tree — never recomputed in Python.
+HTML/CSS is rendered ONCE by the backend; the returned
+``RenderedDocument`` is both what diagnostics measure and what PDF
+serialization emits. There is no second layout pass to produce output.
 
 ``auto`` orientations for ``compare``/``flow`` resolve by real fit: the
 first pass renders them horizontal; if a page then overflows, every still
 -horizontal ``auto`` node on an overflowing page flips to vertical and the
-document is re-rendered once. A page that still overflows fails.
+document is re-rendered once. A page that still overflows fails. This is
+a deliberately bounded, deterministic fallback — per-component candidate
+evaluation is M3 scope.
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ import os
 import pathlib
 from dataclasses import dataclass, field
 
-from .backends.base import DocumentLayout
+from .backends.base import DocumentLayout, RenderedDocument
 from .document import Document
 from .errors import Diagnostic
 from .registry import ComponentSpec, get_registry
@@ -32,6 +35,8 @@ class BuildResult:
     node_map: dict[str, NodeRef]
     resolved: dict[str, str]
     layout: DocumentLayout
+    # The measured backend document — serialize THIS for PDF output.
+    rendered: RenderedDocument | None = None
     diagnostics: list[Diagnostic] = field(default_factory=list)
 
     @property
@@ -67,7 +72,11 @@ def build_document(
     registry: dict[str, ComponentSpec] | None = None,
 ) -> BuildResult:
     """Render HTML, measure with the backend, resolve auto layouts,
-    produce diagnostics."""
+    produce diagnostics.
+
+    Exactly one backend layout pass normally; at most two when ``auto``
+    compare/flow orientation needs the bounded vertical fallback.
+    """
 
     from .backends import weasyprint  # lazy: keeps lint/ast CLI fast
 
@@ -75,19 +84,20 @@ def build_document(
     base_url = _base_url(document.manifest_dir)
 
     render = render_document(document, theme, reg)
-    layout = weasyprint.layout_document(render.html, base_url)
+    rendered = weasyprint.render(render.html, base_url)
 
-    flips = _auto_flippable(render, layout)
+    flips = _auto_flippable(render, rendered.layout)
     if flips:
         render = render_document(document, theme, reg, resolutions=flips)
-        layout = weasyprint.layout_document(render.html, base_url)
+        rendered = weasyprint.render(render.html, base_url)
 
-    diagnostics = _layout_diagnostics(document, layout, render.node_map)
+    diagnostics = _layout_diagnostics(document, rendered.layout, render.node_map)
     return BuildResult(
         html=render.html,
         node_map=render.node_map,
         resolved=render.resolved,
-        layout=layout,
+        layout=rendered.layout,
+        rendered=rendered,
         diagnostics=diagnostics,
     )
 
@@ -112,19 +122,27 @@ def _layout_diagnostics(
         page_id = pl.page_id or (page_node.page_id if page_node else f"page-{pl.index}")
         src_path = page_node.source.path if page_node else document.manifest_path
         if pl.overflow_px > 0 or pl.width_overflow_px > 0:
-            ref = node_map.get(pl.last_block_id or "")
+            # Attribute to the deepest authored node whose rendered bounds
+            # actually cross the region boundary.
+            ref = node_map.get(pl.overflow_node_id or pl.last_block_id or "")
             line = ref.node.source.start_line if ref else 1
             col = ref.node.source.start_col if ref else 1
             desc = _block_desc(ref)
-            amount = pl.overflow_px if pl.overflow_px > 0 else pl.width_overflow_px
-            axis = "content region" if pl.overflow_px > 0 else "content width"
+            if pl.overflow_axis == "horizontal" or (
+                pl.overflow_axis is None and pl.width_overflow_px > 0
+            ):
+                amount = pl.width_overflow_px
+                axis = "content region width"
+            else:
+                amount = pl.overflow_px
+                axis = "content region"
             diagnostics.append(
                 Diagnostic(
                     src_path,
                     line,
                     col,
                     f"page '{page_id}' exceeds {axis} by {amount:.0f}px; "
-                    f"last overflowing block: {desc} starting at line {line}",
+                    f"overflowing block: {desc} starting at line {line}",
                 )
             )
     return diagnostics

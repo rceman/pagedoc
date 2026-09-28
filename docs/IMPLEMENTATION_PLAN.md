@@ -121,6 +121,18 @@ Implement:
 - `pagedoc render --pdf-out` and `pagedoc inspect` (human + `--json`);
 - local theme fonts only; no remote assets.
 
+> Correction pass additions (same milestone):
+>
+> - the measured WeasyPrint `Document` is the exact object serialized to
+>   PDF — no second layout pass to write output;
+> - the builtin theme pins vendored Inter/Roboto Mono (OFL) for portable
+>   deterministic typography;
+> - overflow attributes the deepest authored node crossing the region;
+> - `examples/visual-primitives/` geometric-primitive conformance corpus
+>   with two independent raster validators (PDFium, MuPDF);
+> - experimental `--flattened-pdf-out` pixel-locked PDF derived from the
+>   validated vector PDF.
+
 Critical requirement:
 
 Do not build a duplicate handwritten text-fit engine. Derive fit/overflow from the authoritative rendered HTML/CSS/backend path.
@@ -142,6 +154,9 @@ Acceptance includes representative fixtures for:
 
 Later work, now that WeasyPrint/PDF lives in M2:
 
+- per-component auto-orientation candidate evaluation and composition
+  scoring (M2's auto fallback is bounded: horizontal-first, then all
+  failing auto nodes flip to vertical in one re-render);
 - richer automatic composition and fit heuristics;
 - performance work driven by a benchmark suite;
 - public Python package metadata polish;

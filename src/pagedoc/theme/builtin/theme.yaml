@@ -34,13 +34,15 @@ splits:
   wide-left: [2, 1]
   wide-right: [1, 2]
 
-# Roles map to CSS font stacks. A role may instead point at a local font
-# file via `source:` (see THEME_SPEC.md). These roles use system fallback
-# families only; nothing is fetched remotely.
+# Roles map to CSS font stacks. The reference theme pins LOCAL font files
+# (vendored, OFL-licensed) so fixed-page layout is portable across hosts;
+# the family list after the pinned font is a system fallback only.
 fonts:
   prose:
-    family: "'Segoe UI', 'Helvetica Neue', 'DejaVu Sans', Arial, sans-serif"
+    family: "'Inter', 'Segoe UI', 'Helvetica Neue', 'DejaVu Sans', Arial, sans-serif"
+    source: fonts/Inter-Regular.ttf
   mono:
-    family: "'DejaVu Sans Mono', Consolas, 'Liberation Mono', Menlo, monospace"
+    family: "'Roboto Mono', 'DejaVu Sans Mono', Consolas, 'Liberation Mono', Menlo, monospace"
+    source: fonts/RobotoMono-Regular.ttf
 
 css: theme.css

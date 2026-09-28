@@ -63,8 +63,11 @@ def _cmd_ast(args) -> int:
 
 
 def _cmd_render(args) -> int:
-    if not args.html_out and not args.pdf_out:
-        print("render: at least one of --html-out/--pdf-out is required", file=sys.stderr)
+    if not args.html_out and not args.pdf_out and not args.flattened_pdf_out:
+        print(
+            "render: at least one of --html-out/--pdf-out/--flattened-pdf-out is required",
+            file=sys.stderr,
+        )
         return 1
     registry = get_registry()
     try:
@@ -84,24 +87,30 @@ def _cmd_render(args) -> int:
     if build.diagnostics:
         _print_diagnostic_list(build.diagnostics)
         return 1
-    if args.pdf_out:
-        from .backends import weasyprint
-
-        out_dir = os.path.dirname(args.pdf_out)
+    pdf_path = args.pdf_out
+    if pdf_path:
+        out_dir = os.path.dirname(pdf_path)
         if out_dir:
             os.makedirs(out_dir, exist_ok=True)
-        weasyprint.write_pdf(build.html, _base_url_for(doc), args.pdf_out)
-        print(f"wrote {args.pdf_out} ({len(doc.pages)} pages)")
+        # Serialize the SAME rendered document that was measured.
+        build.rendered.write_pdf(pdf_path)
+        print(f"wrote {pdf_path} ({len(doc.pages)} pages)")
+    if args.flattened_pdf_out:
+        from .flatten import flatten_document_pdf
+
+        try:
+            flatten_document_pdf(build.rendered, args.flattened_pdf_out, dpi=args.flatten_dpi)
+        except PageDocError as e:
+            _print_diagnostics(e)
+            return 1
+        print(
+            f"wrote {args.flattened_pdf_out} ({len(doc.pages)} pages, "
+            f"{args.flatten_dpi} dpi, experimental)"
+        )
     return 0
 
 
-def _base_url_for(doc) -> str:
-    import pathlib
-
-    return pathlib.Path(os.path.abspath(doc.manifest_dir)).as_uri() + "/"
-
-
-def _inspect_payload(doc, build: BuildResult) -> dict[str, Any]:
+def _inspect_payload(doc, build: BuildResult, theme) -> dict[str, Any]:
     pages: list[dict[str, Any]] = []
     for pl in build.layout.pages:
         resolved: dict[str, str] = {}
@@ -126,6 +135,8 @@ def _inspect_payload(doc, build: BuildResult) -> dict[str, Any]:
                 ),
                 "overflow_px": round(pl.overflow_px, 1),
                 "width_overflow_px": round(pl.width_overflow_px, 1),
+                "overflow_node": pl.overflow_node_id,
+                "overflow_axis": pl.overflow_axis,
                 "last_block": pl.last_block_id,
                 "resolved": resolved,
             }
@@ -133,6 +144,8 @@ def _inspect_payload(doc, build: BuildResult) -> dict[str, Any]:
     return {
         "document": doc.doc_id,
         "manifest": doc.manifest_path,
+        "theme": theme.id,
+        "typography_portable": theme.typography_portable,
         "pages_logical": len(doc.pages),
         "pages_physical": build.layout.physical_page_count,
         "all_fit": build.layout.all_fit
@@ -150,7 +163,7 @@ def _cmd_inspect(args) -> int:
     except PageDocError as e:
         _print_diagnostics(e)
         return 1
-    payload = _inspect_payload(doc, build)
+    payload = _inspect_payload(doc, build, theme)
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
@@ -194,6 +207,18 @@ def _parser() -> argparse.ArgumentParser:
     pr.add_argument("document")
     pr.add_argument("--html-out", metavar="PATH")
     pr.add_argument("--pdf-out", metavar="PATH")
+    pr.add_argument(
+        "--flattened-pdf-out",
+        metavar="PATH",
+        help="EXPERIMENTAL pixel-locked PDF rasterized from the validated vector PDF",
+    )
+    pr.add_argument(
+        "--flatten-dpi",
+        metavar="DPI",
+        type=int,
+        default=144,
+        help="raster resolution for --flattened-pdf-out (default 144)",
+    )
     pr.set_defaults(func=_cmd_render)
 
     pi = sub.add_parser("inspect", help="report measured layout per page")

@@ -1,0 +1,6 @@
+id: visual-primitives
+title: Visual Primitives Conformance
+theme: default
+pages:
+  - pages/01-markers.book.md
+  - pages/02-components.book.md

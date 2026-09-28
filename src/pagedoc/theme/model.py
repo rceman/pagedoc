@@ -49,3 +49,13 @@ class Theme:
 
     def spacing_token(self, name: str, default: float = 0.0) -> float:
         return self.spacing.get(name, default)
+
+    @property
+    def typography_portable(self) -> bool:
+        """True when every font role is backed by a pinned local font file.
+
+        System-font themes are allowed but their layout metrics may vary
+        across hosts (THEME_SPEC.md portability contract).
+        """
+
+        return bool(self.fonts) and all(f.source for f in self.fonts.values())

@@ -19,8 +19,13 @@ python3 -m venv .venv
 pagedoc lint examples/product-handbook/document.yaml
 pagedoc ast examples/product-handbook/pages/01-overview.book.md
 pagedoc render examples/product-handbook/document.yaml --html-out out/book.html --pdf-out out/book.pdf
+pagedoc render examples/visual-primitives/document.yaml --pdf-out out/vp.pdf --flattened-pdf-out out/vp.flat.pdf
 pagedoc inspect examples/layout-gallery/document.yaml --json
 ```
+
+Optional extras: `pagedoc[raster]` (pypdfium2 + PyMuPDF + img2pdf +
+Pillow) enables the experimental flattened-PDF output and the
+cross-renderer raster validation tests.
 
 ## Core idea
 
@@ -119,7 +124,10 @@ Markdown already covers headings, prose, lists, tables, emphasis, links, inline 
 - `docs/IMPLEMENTATION_PLAN.md` - staged implementation plan
 - `docs/AST_FORMAT.md` - serialized AST node shapes (schema_version 1)
 - `examples/product-handbook/` - neutral example document
+- `examples/layout-gallery/` - 10-page layout acceptance corpus
+- `examples/visual-primitives/` - geometric-primitive renderer conformance corpus
 - `tests/fixtures/` - contract fixtures for parser and AST behavior
+- `tests/fixtures/overflow/` - intentional overflow fixtures
 - `AGENTS.md` - implementation constraints for coding agents
 
 ## Non-goals for v1

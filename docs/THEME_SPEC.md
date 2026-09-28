@@ -165,6 +165,26 @@ Fonts must be local and loadable without network access.
 
 Fallback behavior must be explicit.
 
+### Typography portability contract
+
+Two tiers:
+
+- **Pinned local fonts** (a font role with `source:` pointing at a
+  vendored file): portable deterministic fixed-page typography — the
+  same input produces the same wrapping and fit on any host.
+- **System-font themes** (roles without `source:`): allowed for custom
+  themes but *not* guaranteed cross-host deterministic — glyph metrics
+  may differ between operating systems, changing line wrapping and
+  overflow results.
+
+`Theme.typography_portable` is true only when every declared role is
+backed by a local file; `pagedoc inspect --json` reports it.
+
+The builtin reference theme vendors static instances of **Inter
+Regular** (prose) and **Roboto Mono Regular** (mono) under the SIL Open
+Font License (`theme/builtin/fonts/`, license texts included,
+SHA-256-pinned). The CSS stacks still list system families as fallback.
+
 ## 7. Color and accessibility
 
 Themes should:
@@ -226,12 +246,44 @@ The engine should report overflow rather than:
 
 ## 12. Theme validation
 
-Theme linting should eventually verify:
+The theme loader enforces:
 
-- required manifest keys;
-- known split names;
-- local CSS exists;
-- local font/assets exist;
-- page/content region is valid;
+- required manifest keys (`id`, `page`, `regions`, `css`);
+- `page.width`/`height` > 0 and `unit: px`;
+- every region: `x >= 0`, `y >= 0`, `width > 0`, `height > 0`,
+  `x + width <= page.width`, `y + height <= page.height` — a region
+  extending outside the physical page fails with a theme-path, region
+  name, and offending boundary;
+- regions may overlap intentionally (decorative overlays);
+- spacing values must be non-negative numbers;
+- split ratios must be lists of >= 2 positive numbers;
+- local CSS exists; font `source` files exist and are local;
 - no remote font/import dependency is required;
 - deterministic asset resolution.
+
+## 13. Geometric primitives
+
+Visual primitives whose exact alignment is meaningful (centered dots in
+rings, connector endpoints, status markers, checkbox/radio marks) must
+be constructed as geometry — inline SVG or CSS boxes sharing explicit
+coordinates — not independent font glyphs. The builtin theme's flow
+connectors are CSS shaft+arrowhead boxes; marker/check fixtures are
+inline SVG. See ARCHITECTURE section 12.
+
+## 14. Flattened PDF tradeoffs
+
+`--flattened-pdf-out` is an experimental output mode producing an
+image-only PDF from the validated vector PDF.
+
+| | vector PDF | flattened PDF |
+|---|---|---|
+| text | searchable/selectable | reduced/absent |
+| size | smaller | larger |
+| resolution | independent | bounded by raster DPI |
+| accessibility | preserved | reduced |
+| viewer dependence | renders vectors/fonts | pixel-locked |
+
+Neither is universally superior; M3/publication integration chooses.
+Cross-renderer raster validation is part of fixed-page engine
+acceptance (tests rasterize the vector PDF with PDFium and MuPDF and
+compare marker geometry).

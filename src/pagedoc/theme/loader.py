@@ -71,19 +71,32 @@ def _load_theme_text(theme_text: str, theme_path: str, theme_dir: str) -> Theme:
     for name, r in regions_raw.items():
         if not isinstance(r, dict):
             raise _err(theme_path, f"region '{name}' must be a mapping")
-        regions[str(name)] = Rect(
+        rect = Rect(
             x=_number(r, "x", theme_path, f"regions.{name}"),
             y=_number(r, "y", theme_path, f"regions.{name}"),
             width=_positive_number(r, "width", theme_path, f"regions.{name}"),
             height=_positive_number(r, "height", theme_path, f"regions.{name}"),
         )
+        if rect.x + rect.width > width:
+            raise _err(
+                theme_path,
+                f"region '{name}' extends past the right page edge "
+                f"(x={rect.x:g} + width={rect.width:g} > page width {width:g})",
+            )
+        if rect.y + rect.height > height:
+            raise _err(
+                theme_path,
+                f"region '{name}' extends past the bottom page edge "
+                f"(y={rect.y:g} + height={rect.height:g} > page height {height:g})",
+            )
+        regions[str(name)] = rect
     if "content" not in regions:
         raise _err(theme_path, "theme regions must define 'content'")
 
     spacing: dict[str, float] = {}
     for k, v in (data.get("spacing") or {}).items():
-        if not isinstance(v, (int, float)):
-            raise _err(theme_path, f"spacing '{k}' must be a number")
+        if not isinstance(v, (int, float)) or v < 0:
+            raise _err(theme_path, f"spacing '{k}' must be a non-negative number")
         spacing[str(k)] = float(v)
 
     splits: dict[str, tuple[float, ...]] = {}

@@ -150,3 +150,39 @@ def test_full_document_html(tmp_path):
     assert html1 == html2  # deterministic
     assert html1.index('id="pd-page-p1"') < html1.index('id="pd-page-p2"')  # order
     assert "<title>Doc</title>" in html1
+
+
+def test_browser_userinfo_password_preserved():
+    """Authored URL credentials must render verbatim (escaped), not redacted."""
+
+    html = _render_page_text(
+        "<browser>\nhttps://john:secret@example.test/path\n</browser>\n"
+    )
+    assert "john:secret@" in html
+    assert "***" not in html
+    assert "example.test" in html and "/path" in html
+
+
+def test_browser_invalid_port_no_crash():
+    html = _render_page_text("<browser>\nhttp://example.test:not-a-port/\n</browser>\n")
+    assert "pd-browser" in html
+    assert "example.test" in html
+    assert "not-a-port" in html  # authored text preserved verbatim
+
+
+def test_browser_malformed_ipv6_no_crash():
+    html = _render_page_text("<browser>\nhttp://[::1/path\n</browser>\n")
+    assert "pd-browser" in html
+    assert "[::1" in html or "::1" in html
+
+
+def test_browser_valid_ipv6_and_port():
+    html = _render_page_text("<browser>\nhttps://[2001:db8::1]:8443/x\n</browser>\n")
+    assert "[2001:db8::1]" in html
+    assert ":8443" in html
+
+
+def test_browser_malformed_userinfo_no_crash():
+    html = _render_page_text("<browser>\nftp://u@@host.test/\n</browser>\n")
+    assert "pd-browser" in html
+    assert "u@" in html and "host.test" in html

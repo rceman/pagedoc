@@ -133,3 +133,88 @@ def test_theme_remote_css_rejected(tmp_path):
 def test_theme_not_found(tmp_path):
     with pytest.raises(PageDocError, match="theme manifest not found"):
         load_theme("nope/theme.yaml", str(tmp_path))
+
+
+def _write_theme_with_region(tmp_path, region_yaml, extra=""):
+    css = tmp_path / "theme.css"
+    css.write_text("x", encoding="utf-8")
+    (tmp_path / "theme.yaml").write_text(
+        "id: t\npage: {width: 800, height: 600, unit: px}\n"
+        + region_yaml
+        + extra
+        + "\ncss: theme.css\n",
+        encoding="utf-8",
+    )
+    return tmp_path
+
+
+def test_region_past_right_edge_rejected(tmp_path):
+    d = _write_theme_with_region(
+        tmp_path,
+        "regions:\n  content: {x: 700, y: 0, width: 200, height: 100}\n",
+    )
+    with pytest.raises(PageDocError, match="right page edge"):
+        load_theme("theme.yaml", str(d))
+
+
+def test_region_past_bottom_edge_rejected(tmp_path):
+    d = _write_theme_with_region(
+        tmp_path,
+        "regions:\n  content: {x: 0, y: 550, width: 100, height: 100}\n",
+    )
+    with pytest.raises(PageDocError, match="bottom page edge"):
+        load_theme("theme.yaml", str(d))
+
+
+def test_region_negative_coordinate_rejected(tmp_path):
+    d = _write_theme_with_region(
+        tmp_path,
+        "regions:\n  content: {x: -5, y: 0, width: 100, height: 100}\n",
+    )
+    with pytest.raises(PageDocError):
+        load_theme("theme.yaml", str(d))
+
+
+def test_region_exact_page_edge_accepted(tmp_path):
+    d = _write_theme_with_region(
+        tmp_path,
+        "regions:\n  content: {x: 0, y: 0, width: 800, height: 600}\n",
+    )
+    theme = load_theme("theme.yaml", str(d))
+    assert theme.regions["content"].width == 800
+
+
+def test_overlapping_regions_accepted(tmp_path):
+    d = _write_theme_with_region(
+        tmp_path,
+        "regions:\n"
+        "  content: {x: 0, y: 0, width: 800, height: 600}\n"
+        "  header: {x: 0, y: 0, width: 800, height: 50}\n",
+    )
+    theme = load_theme("theme.yaml", str(d))
+    assert "header" in theme.regions
+
+
+def test_negative_spacing_rejected(tmp_path):
+    d = _write_theme_with_region(
+        tmp_path,
+        "regions:\n  content: {x: 0, y: 0, width: 100, height: 100}\n",
+        extra="spacing:\n  block: -5\n",
+    )
+    with pytest.raises(PageDocError, match="non-negative"):
+        load_theme("theme.yaml", str(d))
+
+
+def test_builtin_theme_typography_portable():
+    theme = load_theme("default", ".")
+    assert theme.typography_portable is True
+
+
+def test_theme_without_sources_not_portable(tmp_path):
+    d = _write_theme_with_region(
+        tmp_path,
+        "regions:\n  content: {x: 0, y: 0, width: 100, height: 100}\n",
+        extra="fonts:\n  prose: {family: 'SystemStack, sans-serif'}\n",
+    )
+    theme = load_theme("theme.yaml", str(d))
+    assert theme.typography_portable is False

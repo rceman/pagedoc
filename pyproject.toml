@@ -22,6 +22,14 @@ dependencies = [
 dev = [
     "pytest>=7.4,<9",
 ]
+# Optional raster/flatten pipeline + cross-renderer visual validation.
+# Isolated from the core parser/lint/HTML path; loaded lazily.
+raster = [
+    "pypdfium2>=4.30,<6",
+    "PyMuPDF>=1.24,<2",
+    "img2pdf>=0.5,<1",
+    "Pillow>=10,<12",
+]
 
 [project.scripts]
 pagedoc = "pagedoc.cli:main"
@@ -30,7 +38,7 @@ pagedoc = "pagedoc.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-pagedoc = ["theme/builtin/*.yaml", "theme/builtin/*.css"]
+pagedoc = ["theme/builtin/*.yaml", "theme/builtin/*.css", "theme/builtin/fonts/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -169,12 +169,17 @@ th { background: var(--pd-surface); font-weight: 600; }
   background: var(--pd-surface);
 }
 .pd-note--tone-warning { border-left-color: var(--pd-warning); }
-/* redundant non-color cue: warning tone is always labelled in text */
-.pd-note--tone-warning::before {
-  content: "Warning";
-  display: block; margin-bottom: 4px;
+/* redundant non-color cue: warning notes get a geometric disc marker
+   (pure CSS box geometry, not a glyph) plus a textual label */
+.pd-note-cue {
+  display: flex; align-items: center; gap: 6px;
   font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--pd-warning);
+  margin: 0 0 4px;
+}
+.pd-note-cue-dot {
+  display: block; width: 7px; height: 7px; border-radius: 4px;
+  background: var(--pd-warning);
 }
 .pd-result { border-left-color: var(--pd-ok); }
 .pd-note-title, .pd-result-title, .pd-flow-title {
@@ -229,9 +234,17 @@ th { background: var(--pd-surface); font-weight: 600; }
 }
 .pd-flow--layout-horizontal .pd-step { position: relative; }
 .pd-flow--layout-horizontal .pd-step + .pd-step { margin-left: 8px; }
+/* connector = pure CSS box geometry (shaft + arrowhead), never a font
+   glyph — exact alignment must not depend on font metrics */
 .pd-flow--layout-horizontal .pd-step + .pd-step::before {
-  content: "\2192"; position: absolute; left: -12px; top: 8px;
-  color: var(--pd-muted);
+  content: ""; position: absolute; left: -13px; top: 14px;
+  width: 9px; height: 2px; background: var(--pd-muted);
+}
+.pd-flow--layout-horizontal .pd-step + .pd-step::after {
+  content: ""; position: absolute; left: -5px; top: 10px;
+  width: 0; height: 0;
+  border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+  border-left: 6px solid var(--pd-muted);
 }
 .pd-step-label {
   font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em;

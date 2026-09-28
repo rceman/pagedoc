@@ -93,13 +93,16 @@ def _render_browser(node, spec, registry, ctx) -> str:
 def _browser_url_html(url: str) -> str:
     """Render one authored URL as structured, escaped segments.
 
-    Malformed or relative URLs degrade to a single escaped text span;
-    rendering must not fail after validation succeeded.
+    Fidelity contract: authored URL text is never silently rewritten —
+    userinfo (including passwords) is displayed verbatim (HTML-escaped).
+    Malformed input degrades to a single escaped raw span; this function
+    must never raise on malformed input.
     """
 
     try:
         parts = urlsplit(url)
     except ValueError:
+        # Malformed authorities (e.g. unclosed IPv6 bracket) — raw fallback.
         parts = SplitResult("", "", url, "", "")
     segments: list[str] = []
     if parts.scheme and parts.netloc:
@@ -113,15 +116,27 @@ def _browser_url_html(url: str) -> str:
         body.append(f'<span class="pd-url-scheme">{esc(parts.scheme)}</span>')
     if parts.netloc:
         body.append('<span class="pd-url-delim">://</span>')
-        if parts.username:
-            userinfo = parts.username + ("@" if parts.username else "")
-            if parts.password:
-                userinfo = parts.username + ":***@"
-            body.append(f'<span class="pd-url-userinfo">{esc(userinfo)}</span>')
-        host = parts.hostname or ""
-        body.append(f'<span class="pd-url-host">{esc(host)}</span>')
-        if parts.port is not None:
-            body.append(f'<span class="pd-url-port">:{parts.port}</span>')
+        # Parse the authority ourselves so invalid ports/IPv6 cannot raise
+        # (SplitResult.port/.hostname may raise ValueError). Authored
+        # text is shown verbatim, escaped.
+        netloc = parts.netloc
+        userinfo = ""
+        hostport = netloc
+        if "@" in netloc:
+            userinfo, hostport = netloc.rsplit("@", 1)
+        if userinfo:
+            body.append(f'<span class="pd-url-userinfo">{esc(userinfo)}@</span>')
+        if hostport.startswith("[") and "]" in hostport:
+            host, _, rest = hostport.partition("]")
+            body.append(f'<span class="pd-url-host">{esc(host + "]")}</span>')
+            if rest:
+                body.append(f'<span class="pd-url-port">{esc(rest)}</span>')
+        elif ":" in hostport:
+            host, _, port = hostport.rpartition(":")
+            body.append(f'<span class="pd-url-host">{esc(host)}</span>')
+            body.append(f'<span class="pd-url-port">:{esc(port)}</span>')
+        else:
+            body.append(f'<span class="pd-url-host">{esc(hostport)}</span>')
     if parts.path:
         body.append(f'<span class="pd-url-path">{esc(parts.path)}</span>')
     if parts.query:
@@ -137,6 +152,10 @@ def _browser_url_html(url: str) -> str:
 def _render_note(node, spec, registry, ctx) -> str:
     tone = node.attrs.get("tone", "note")
     lines = [f'<aside class="pd-note pd-note--tone-{esc_attr(tone)}"{_nid(node, ctx)}>']
+    if tone == "warning":
+        lines.append(
+            _ind('<p class="pd-note-cue"><span class="pd-note-cue-dot"></span>Warning</p>')
+        )
     title = node.attrs.get("title")
     if title:
         lines.append(_ind(f'<p class="pd-note-title">{esc(title)}</p>'))

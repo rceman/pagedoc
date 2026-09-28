@@ -207,6 +207,14 @@ nodes via `data-pd-node` attributes, and reports overflow against the
 theme's explicit content region. One logical `.book.md` page must render
 as exactly one physical page; overflow is an authoring error.
 
+**What PageDoc measures is exactly what PageDoc emits.** The adapter
+performs `HTML(...).render()` once and returns a `RenderedDocument`
+wrapping the resulting WeasyPrint `Document`; diagnostics are computed
+from that Document's box tree and `write_pdf`/`pdf_bytes` serialize the
+same Document. The PDF is never produced by re-laying out the HTML. A
+normal document therefore needs exactly one layout pass; the bounded
+`auto` orientation fallback adds at most one corrected pass.
+
 A lightweight preflight may catch obviously invalid structures, but it must not become a divergent duplicate renderer.
 
 ## 10. Intrinsic sizing
@@ -226,19 +234,28 @@ Conceptually each rendered block has:
 
 `flow layout="auto"` may choose a horizontal or vertical presentation through a deterministic rule.
 
+M2's `auto` fallback for `compare`/`flow` is deliberately bounded: the
+first pass renders them horizontal; if the page overflows, all
+still-horizontal `auto` nodes on failing pages flip to vertical and the
+document is laid out once more. M2 does **not** evaluate each candidate
+orientation independently — per-component candidate scoring and optimal
+composition are M3 scope.
+
 Any automatic choice must be reproducible for identical source, theme, engine version, and local assets.
 
 ## 11. Overflow diagnostics
 
-For fixed pages, PageDoc must eventually detect content outside the page content region.
+For fixed pages, PageDoc detects content outside the page content
+region using the rendered box tree.
 
-A useful diagnostic should identify:
+A diagnostic identifies:
 
 - page ID;
 - source file;
-- offending/responsible block where possible;
-- content region bounds;
-- overflow direction/amount if backend data exposes it;
+- the most specific authored node whose rendered bounds cross a region
+  boundary (via `data-pd-node` on the deepest crossing box — e.g. a
+  `request` inside a `row`, not the row itself);
+- overflow axis (vertical/horizontal) and amount in px;
 - suggested structural action, not an automatic content rewrite.
 
 PageDoc must never silently shrink fonts to make content fit.
@@ -274,8 +291,43 @@ there, covered by integration tests, and the WeasyPrint dependency is
 pinned accordingly. No other module may import WeasyPrint internals.
 
 PDF byte determinism is achieved by setting `SOURCE_DATE_EPOCH` inside
-the adapter around `write_pdf`, which stabilizes embedded font
-timestamps.
+the adapter around `Document.write_pdf`, which stabilizes embedded font
+timestamps. The serialized Document is the same object that diagnostics
+measured.
+
+### Visual fidelity contract
+
+Correct geometry in the layout report is not sufficient: small visual
+primitives whose alignment is semantically meaningful (centered dots in
+rings, connector endpoints, status markers, checkbox/radio marks,
+diagram nodes) must be constructed as **geometry** — inline SVG or CSS
+boxes/pseudo-elements sharing explicit coordinates — never as
+independently positioned font glyphs (e.g. `○` + `•`), which shift under
+different font metrics and PDF renderers. Ordinary text stays text.
+
+`examples/visual-primitives/` is the renderer-conformance corpus; its
+markers are validated by rasterizing the final PDF with two independent
+renderers (PDFium via `pypdfium2`, MuPDF via `PyMuPDF`) and asserting
+outer/inner marker centers agree within a small documented tolerance.
+These rasterizers are test/inspection tooling only, never layout
+engines; they are optional dependencies (`pagedoc[raster]`).
+
+### Flattened PDF (experimental)
+
+`--flattened-pdf-out` writes an image-only PDF derived from the already
+validated vector PDF:
+
+    rendered Document -> vector PDF bytes -> PDFium raster at fixed DPI
+        -> one PNG per physical page -> img2pdf assembly
+
+The HTML is never re-laid-out; WeasyPrint remains the single layout
+truth. Physical page count, order, and exact point size are preserved
+(the img2pdf layout function pins each page's pt size from the source
+page). `nodate` + the internal writer make flattened output byte
+deterministic. Tradeoffs (larger size, no text selection/search, quality
+bounded by raster DPI) are documented in THEME_SPEC section 14. Flatten
+is opt-in, never the M2 default; M3 decides which artifact a
+publication uses.
 
 ## 13. Determinism
 
@@ -284,13 +336,20 @@ Given identical:
 - sources;
 - manifest;
 - local assets;
-- theme;
+- theme (including pinned font files);
 - engine version;
 - backend version;
 
 PageDoc should produce byte-stable AST/HTML where practical.
 
-PDF byte identity may depend on backend metadata; if fully byte-stable PDF is not practical, normalized artifact identity and deterministic visible output must still be testable.
+PDF byte identity may depend on backend metadata; if fully byte-stable PDF is not practical, normalized artifact identity and deterministic visible output must still be testable. (Current status: vector PDF and flattened PDF are both byte-identical on repeat.)
+
+Cross-host layout determinism additionally requires pinned local fonts:
+the reference theme vendors Inter and Roboto Mono (OFL) so glyph metrics
+cannot vary with the host's font stack. Themes that rely on system fonts
+are allowed but may produce different wrapping and fit results on
+different hosts; `Theme.typography_portable` reports this and
+`inspect --json` exposes it.
 
 No build step may depend on current network content.
 

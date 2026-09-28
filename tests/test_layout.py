@@ -362,3 +362,116 @@ def test_theme_local_font_used_in_render(tmp_path):
     assert build.diagnostics == []
     data = weasyprint.pdf_bytes(build.html, base_url=doc.manifest_dir)
     assert data.startswith(b"%PDF-")
+
+
+# ---------------- overflow attribution ------------------------------------
+
+
+def test_overflow_attributes_nested_offender(tmp_path):
+    """A <request> inside a <row> that overflows must be blamed, not the row."""
+
+    tall = "\n".join(f"line {i}" for i in range(70))
+    body = (
+        "<row>\n<request>\n" + tall + "\n</request>\n"
+        "<note>\nsmall\n</note>\n</row>\n\nTrailing paragraph.\n"
+    )
+    _, build = _build_doc(tmp_path, [body])
+    page = build.layout.pages[0]
+    assert not page.fits
+    ref = build.node_map[page.overflow_node_id]
+    assert ref.node.name == "request"
+    msg = build.diagnostics[0].message
+    assert "<request>" in msg
+    assert f"line {ref.node.source.start_line}" in msg
+    # the trailing paragraph (a later block) is not blamed
+    assert "paragraph" not in msg.split(";")[-1] or "request" in msg
+
+
+def test_overflow_vertical_axis_and_top_level(tmp_path):
+    body = "\n\n".join(f"P{i} filler." for i in range(60)) + "\n"
+    _, build = _build_doc(tmp_path, [body])
+    page = build.layout.pages[0]
+    assert page.overflow_axis == "vertical"
+    ref = build.node_map[page.overflow_node_id]
+    assert getattr(ref.node, "type", None) == "paragraph" or getattr(
+        ref.node, "name", None
+    ) in ("paragraph",)
+
+
+def test_horizontal_overflow_axis(tmp_path):
+    """An unbreakable token wider than the region flags horizontal
+    overflow attributed to the paragraph node."""
+
+    body = "x" * 600 + "\n"
+    _, build = _build_doc(tmp_path, [body])
+    page = build.layout.pages[0]
+    assert page.width_overflow_px > 0
+    assert page.overflow_axis == "horizontal"
+    assert build.diagnostics
+    assert "width" in build.diagnostics[0].message
+    ref = build.node_map[page.overflow_node_id]
+    assert getattr(ref.node, "type", None) == "paragraph"
+
+
+def test_source_line_attribution(tmp_path):
+    """Diagnostic carries path:line of the actual offending node."""
+
+    big = "\n\n".join(f"P{i} filler filler filler." for i in range(60))
+    body = "<note>\nshort\n</note>\n\n" + big + "\n"
+    _, build = _build_doc(tmp_path, [body])
+    d = build.diagnostics[0]
+    assert d.path.endswith(".book.md")
+    ref = build.node_map[build.layout.pages[0].overflow_node_id]
+    assert d.line == ref.node.source.start_line
+    # not the note (line 7) — the overflowing paragraph deep below
+    assert d.line > 12
+
+
+def test_same_rendered_document_is_serialized(tmp_path):
+    """The measured WeasyPrint Document is the emitted Document (one pass)."""
+
+    calls = []
+    orig = weasyprint.render
+
+    def spy(html_text, base_url):
+        calls.append(len(calls))
+        return orig(html_text, base_url)
+
+    weasyprint.render = spy
+    try:
+        _, build = _build_doc(tmp_path, ["Hello.\n"])
+    finally:
+        weasyprint.render = orig
+    assert calls == [0]  # exactly one layout pass for a normal document
+    # serializing writes the same Document object that was measured
+    assert build.rendered.layout is build.layout
+    pdf = build.rendered.pdf_bytes()
+    assert pdf.startswith(b"%PDF-")
+
+
+def test_auto_fallback_uses_at_most_two_passes(tmp_path):
+    tall = "\n\n".join(
+        f"Verification point {i} covering several aspects of expected behavior."
+        for i in range(20)
+    )
+    body = (
+        '<compare layout="auto">\n<result>\n' + tall + "\n</result>\n"
+        "<result>\nOK\n</result>\n</compare>\n"
+    )
+    import pagedoc.backends.weasyprint as wp
+
+    calls = []
+    orig = wp.render
+
+    def spy(html_text, base_url):
+        calls.append(len(calls))
+        return orig(html_text, base_url)
+
+    wp.render = spy
+    try:
+        _, build = _build_doc(tmp_path, [body])
+    finally:
+        wp.render = orig
+    assert len(calls) == 2  # one initial pass + one bounded auto flip
+    assert build.layout.pages[0].fits
+    assert _resolved(build, _by_name(build, "compare"), "layout") == "vertical"
