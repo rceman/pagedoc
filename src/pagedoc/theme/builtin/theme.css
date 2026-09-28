@@ -169,6 +169,13 @@ th { background: var(--pd-surface); font-weight: 600; }
   background: var(--pd-surface);
 }
 .pd-note--tone-warning { border-left-color: var(--pd-warning); }
+/* redundant non-color cue: warning tone is always labelled in text */
+.pd-note--tone-warning::before {
+  content: "Warning";
+  display: block; margin-bottom: 4px;
+  font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--pd-warning);
+}
 .pd-result { border-left-color: var(--pd-ok); }
 .pd-note-title, .pd-result-title, .pd-flow-title {
   font-weight: 700; margin: 0 0 4px; font-size: 11px;
