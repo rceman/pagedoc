@@ -43,6 +43,22 @@ A page source owns:
 
 ## 3. Theme manifest
 
+A fixed-page theme manifest is a YAML file:
+
+- `page.width` / `page.height` / `page.unit`: physical geometry of one
+  logical page. `unit` is `px` in v2. Geometry is required.
+- `regions`: named page regions with explicit `x`/`y`/`width`/`height`.
+  `content` is required; `header` and `footer` are the other standard
+  regions. A theme may leave header/footer visually empty, but region
+  geometry is always explicit.
+- `splits`: named row split ratios (e.g. `wide-left: [2, 1]`).
+- `spacing`: design tokens such as `block`/`internal`.
+- `fonts`: named typography roles (`prose`, `mono`, ...) whose `source`,
+  when present, is a local file inside the theme directory. Themes never
+  reference remote fonts. A role without `source` falls back to system
+  font families (`sans-serif`/`monospace` via fontconfig).
+- `css`: a local stylesheet inside the theme directory.
+
 Illustrative contract:
 
 ```yaml
@@ -196,6 +212,10 @@ The decision must not depend on randomness, clock time, viewport state, or netwo
 ## 11. Overflow
 
 Themes must define a fixed content region for fixed-page output.
+
+Under the M2 fixed-page contract, **one authored `.book.md` page renders
+as exactly one physical page**. Rendered content that exceeds the
+content region is an authoring error reported with a source location.
 
 The engine should report overflow rather than:
 

@@ -1,0 +1,46 @@
+id: default
+version: 1
+
+# Fixed physical page (CSS px). ~A4 ratio at 96dpi.
+page:
+  width: 794
+  height: 1123
+  unit: px
+
+regions:
+  header:
+    x: 48
+    y: 24
+    width: 698
+    height: 64
+  content:
+    x: 64
+    y: 116
+    width: 666
+    height: 900
+  footer:
+    x: 48
+    y: 1040
+    width: 698
+    height: 48
+
+spacing:
+  block: 14
+  internal: 16
+  row-gap: 14
+
+splits:
+  equal: [1, 1]
+  wide-left: [2, 1]
+  wide-right: [1, 2]
+
+# Roles map to CSS font stacks. A role may instead point at a local font
+# file via `source:` (see THEME_SPEC.md). These roles use system fallback
+# families only; nothing is fetched remotely.
+fonts:
+  prose:
+    family: "'Segoe UI', 'Helvetica Neue', 'DejaVu Sans', Arial, sans-serif"
+  mono:
+    family: "'DejaVu Sans Mono', Consolas, 'Liberation Mono', Menlo, monospace"
+
+css: theme.css

@@ -199,7 +199,21 @@ def _registry() -> dict[str, ComponentSpec]:
             max_children=2,
             css_class="pd-row",
             renderer="row",
-            layout_hints={"auto_split": "equal"},
+            layout_hints={
+                "auto_split": "equal",
+                # Ordered child-type pairs -> preset, resolved
+                # deterministically at render time (no backend needed).
+                "auto_split_rules": {
+                    ("request", "response"): "equal",
+                    ("response", "request"): "equal",
+                    ("request", "note"): "wide-left",
+                    ("response", "note"): "wide-left",
+                    ("note", "request"): "wide-right",
+                    ("note", "response"): "wide-right",
+                    ("media", "note"): "wide-left",
+                    ("note", "media"): "wide-right",
+                },
+            },
         ),
         ComponentSpec(
             name="compare",

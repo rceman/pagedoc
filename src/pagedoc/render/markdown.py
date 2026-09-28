@@ -81,42 +81,51 @@ def _inline(node: MarkdownNode) -> str:
     return esc(node.text or "")
 
 
-def render_blocks(nodes: list[MarkdownNode]) -> str:
-    return "\n".join(_block(n) for n in nodes)
+def render_blocks(nodes: list[MarkdownNode], ctx=None) -> str:
+    return "\n".join(_block(n, ctx) for n in nodes)
 
 
-def _block(node: MarkdownNode) -> str:
+def _nid(node: MarkdownNode, ctx) -> str:
+    """Emit a ``data-pd-node`` attribute when a render context is live."""
+
+    if ctx is None or not ctx.annotate:
+        return ""
+    return f' data-pd-node="{ctx.node_id(node, "markdown")}"'
+
+
+def _block(node: MarkdownNode, ctx=None) -> str:
     t = node.type
+    nid = _nid(node, ctx)
     if t == "paragraph":
-        return f"<p>{render_inline(node.children)}</p>"
+        return f"<p{nid}>{render_inline(node.children)}</p>"
     if t == "heading":
         level = int(node.attrs.get("level", 1))
-        return f"<h{level}>{render_inline(node.children)}</h{level}>"
+        return f"<h{level}{nid}>{render_inline(node.children)}</h{level}>"
     if t == "code_block":
         lang = node.attrs.get("lang")
         attr = f' data-lang="{esc_attr(lang)}"' if lang else ""
-        return f'<pre class="pd-code"{attr}><code>{esc(node.text or "")}</code></pre>'
+        return f'<pre class="pd-code"{attr}{nid}><code>{esc(node.text or "")}</code></pre>'
     if t == "block_quote":
-        return f"<blockquote>\n{_ind(render_blocks(node.children))}\n</blockquote>"
+        return f"<blockquote{nid}>\n{_ind(render_blocks(node.children, ctx))}\n</blockquote>"
     if t in ("bullet_list", "ordered_list"):
         tag = "ul" if t == "bullet_list" else "ol"
         items = "\n".join(
-            f"<li>\n{_ind(render_blocks(c.children))}\n</li>" for c in node.children
+            f"<li>\n{_ind(render_blocks(c.children, ctx))}\n</li>" for c in node.children
         )
         start = node.attrs.get("start")
         start_attr = f' start="{int(start)}"' if t == "ordered_list" and isinstance(start, int) and start != 1 else ""
-        return f"<{tag}{start_attr}>\n{items}\n</{tag}>"
+        return f"<{tag}{start_attr}{nid}>\n{items}\n</{tag}>"
     if t == "table":
-        return _table(node)
+        return _table(node, ctx)
     if t == "thematic_break":
-        return "<hr>"
-    return f"<p>{esc(node.text or '')}</p>"
+        return f"<hr{nid}>"
+    return f"<p{nid}>{esc(node.text or '')}</p>"
 
 
-def _table(node: MarkdownNode) -> str:
+def _table(node: MarkdownNode, ctx=None) -> str:
     head_rows = [r for r in node.children if r.attrs.get("header")]
     body_rows = [r for r in node.children if not r.attrs.get("header")]
-    parts: list[str] = ["<table>"]
+    parts: list[str] = [f"<table{_nid(node, ctx)}>"]
     if head_rows:
         parts.append("<thead>")
         parts.extend(_row(r) for r in head_rows)

@@ -92,20 +92,34 @@ Milestone 1 is complete when:
 - all tests pass locally;
 - no GitHub Actions are required.
 
-## Milestone 2 - theme and fixed-page layout diagnostics
+## Milestone 2 - fixed-page theme, authoritative layout, PDF backend
+
+> Revision note: the original plan separated layout diagnostics (old M2)
+> from the PDF backend (old M3). Real fixed-page fit cannot be validated
+> correctly without the actual layout backend, so **WeasyPrint moved
+> into M2 as the single authoritative layout engine**. Old M3 scope
+> (packaging/integration surface, richer automatic composition,
+> performance, tooling polish) becomes later work. The M1 language and
+> AST contracts remain backward-compatible.
 
 Start only after M1 contracts are stable.
 
 Implement:
 
-- strict theme manifest model;
-- fixed page shell;
-- page region rendering;
-- row split presets;
-- intrinsic component layout;
-- deterministic `auto` resolution;
-- fixed-page overflow diagnostics;
-- layout inspection artifacts.
+- strict theme manifest model with fixed physical page geometry;
+- named page regions (at minimum `header`, `content`, `footer`);
+- fixed page shell rendering with per-node `data-pd-*` identifiers;
+- row split presets (`equal`, `wide-left`, `wide-right`, `auto`);
+- intrinsic component layout driven by the real rendered result;
+- deterministic `auto` resolution for `row`/`compare`/`flow`, where
+  `compare`/`flow` `auto` may re-render with a different orientation when
+  the preferred one provably does not fit;
+- WeasyPrint backend adapter (`backends/weasyprint.py`) producing PDF
+  plus layout diagnostics from the rendered box tree;
+- hard invariant: one logical `.book.md` page = one physical PDF page;
+  overflow is an authoring error with a source-located diagnostic;
+- `pagedoc render --pdf-out` and `pagedoc inspect` (human + `--json`);
+- local theme fonts only; no remote assets.
 
 Critical requirement:
 
@@ -124,28 +138,13 @@ Acceptance includes representative fixtures for:
 - long code;
 - intentional overflow.
 
-## Milestone 3 - PDF backend
+## Milestone 3 - composition, performance and integration surface
 
-Implement a backend abstraction and an initial WeasyPrint adapter.
+Later work, now that WeasyPrint/PDF lives in M2:
 
-Requirements:
-
-- local-only assets;
-- exact page size from theme;
-- page count reporting;
-- deterministic build inputs;
-- backend diagnostics;
-- HTML remains independently inspectable.
-
-Add PDF only after HTML/layout behavior is stable.
-
-## Milestone 4 - packaging and integration surface
-
-Potential later work:
-
-- public Python package metadata;
-- stable CLI;
-- versioned AST schema;
+- richer automatic composition and fit heuristics;
+- performance work driven by a benchmark suite;
+- public Python package metadata polish;
 - external theme packages;
 - migration/import adapters;
 - richer inspection tooling.

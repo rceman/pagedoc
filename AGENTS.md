@@ -50,7 +50,8 @@ Otherwise keep the content in Markdown, a table, a fenced code block, or an exis
 
 ## Initial implementation scope
 
-Unless a task explicitly expands scope, implement Milestone 1 from `docs/IMPLEMENTATION_PLAN.md` only.
+Unless a task explicitly expands scope, implement only what the task asks
+for. Milestones 1-2 are implemented; later milestones remain future work.
 
 Milestone 1 includes:
 
@@ -74,13 +75,17 @@ python3 -m venv .venv
 .venv/bin/python -m pytest tests            # full suite
 .venv/bin/pagedoc lint examples/product-handbook/document.yaml
 .venv/bin/pagedoc ast tests/fixtures/request-response.book.md
-.venv/bin/pagedoc render examples/product-handbook/document.yaml --html-out out.html
+.venv/bin/pagedoc render examples/product-handbook/document.yaml --html-out out.html --pdf-out out.pdf
+.venv/bin/pagedoc inspect examples/layout-gallery/document.yaml --json
 ```
 
 Package layout: `src/pagedoc/` (`errors`, `ast`, `attributes`, `markdown`,
-`parser`, `registry`, `validation`, `document`, `theme/`, `render/`,
-`cli`). The serialized AST node vocabulary is documented in
-`docs/AST_FORMAT.md`.
+`parser`, `registry`, `validation`, `document`, `pipeline`, `theme/` —
+incl. `theme/builtin/` reference theme, `render/`, `backends/` —
+WeasyPrint adapter, `cli`). The serialized AST node vocabulary is
+documented in `docs/AST_FORMAT.md`. WeasyPrint is the single
+authoritative fixed-page layout backend; `Page._page_box` is private API
+isolated inside `backends/weasyprint.py`.
 
 ## Completion standard
 

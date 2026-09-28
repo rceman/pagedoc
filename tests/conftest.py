@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
+
+FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
+REPO_ROOT = os.path.dirname(os.path.dirname(__file__))
 
 from pagedoc.parser import parse_page_file, parse_page_text
 from pagedoc.registry import get_registry

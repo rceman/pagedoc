@@ -12,6 +12,10 @@ license = { text = "MIT" }
 dependencies = [
     "markdown-it-py>=3.0,<5",
     "PyYAML>=6.0,<7",
+    # Authoritative fixed-page layout backend. Pinned to the 66.x series:
+    # the adapter reads private box-tree internals (Page._page_box) that
+    # may change between minor versions; see backends/weasyprint.py.
+    "weasyprint>=66.0,<67",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +28,9 @@ pagedoc = "pagedoc.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+pagedoc = ["theme/builtin/*.yaml", "theme/builtin/*.css"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

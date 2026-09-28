@@ -27,11 +27,16 @@ document.yaml
                 |
                 +--> deterministic HTML artifact
                 |
-                +--> optional backend adapter
+                +--> WeasyPrint adapter (authoritative fixed-page layout)
                             |
                             v
-                           PDF
+                  PDF + layout diagnostics
 ```
+
+> Revision note (M2): the plan originally deferred the PDF backend to a
+> later milestone. Real fixed-page fit cannot be validated without the
+> actual layout backend, so WeasyPrint moved into M2 as the single
+> authoritative layout engine. See `IMPLEMENTATION_PLAN.md`.
 
 ## 2. Architectural boundary
 
@@ -64,22 +69,23 @@ The exact module names may evolve, but responsibilities should remain separated:
 ```text
 src/pagedoc/
     cli.py
-    source.py
     parser.py
     ast.py
     registry.py
     validation.py
+    document.py
+    pipeline.py        # render -> backend layout -> diagnostics orchestration
     render/
         html.py
         components.py
+        markdown.py
     theme/
         loader.py
         model.py
-    layout/
-        diagnostics.py
+        builtin/       # reference theme.yaml + theme.css
     backends/
-        base.py
-        weasyprint.py
+        base.py        # backend-neutral layout result types
+        weasyprint.py  # WeasyPrint adapter (see "WeasyPrint adapter" below)
 ```
 
 Avoid a single renderer file that contains parsing, validation, syntax highlighting, HTML templates, geometry, and PDF orchestration together.
@@ -191,7 +197,15 @@ In particular, do not independently reimplement all of these in Python solely fo
 
 The selected HTML/CSS rendering path is authoritative.
 
-Layout diagnostics should be derived from rendered layout/backend information whenever possible.
+**The authoritative fixed-page layout engine is WeasyPrint.** There is
+exactly one layout backend for fixed-page output; do not add Chromium,
+Playwright, or screenshot-based alternatives.
+
+Layout diagnostics are derived from the rendered WeasyPrint document:
+the adapter walks the rendered box tree, maps boxes back to authored
+nodes via `data-pd-node` attributes, and reports overflow against the
+theme's explicit content region. One logical `.book.md` page must render
+as exactly one physical page; overflow is an authoring error.
 
 A lightweight preflight may catch obviously invalid structures, but it must not become a divergent duplicate renderer.
 
@@ -233,22 +247,35 @@ PageDoc must never silently shrink fonts to make content fit.
 
 HTML generation is mandatory.
 
-PDF is an adapter concern.
+The fixed-page backend interface lives behind `pagedoc.backends`.
+`backends/base.py` defines backend-neutral layout result types;
+`backends/weasyprint.py` is the sole implementation in M2.
 
-A backend interface should accept:
+A backend interface accepts:
 
 - generated HTML;
 - theme assets/base URL;
 - deterministic build options.
 
-and return:
+and returns:
 
 - artifact path/bytes;
 - page count;
 - backend diagnostics;
-- optional layout metadata.
+- layout metadata (per-node placements, region usage).
 
-Initial PDF target: WeasyPrint, introduced only after the HTML/AST contract is stable.
+### WeasyPrint adapter boundary
+
+WeasyPrint has no public box-tree API. The adapter is allowed to read
+the private `Page._page_box` tree (`weasyprint.formatting_structure`)
+solely to measure rendered block positions against theme regions. All
+private API access is isolated in `backends/weasyprint.py`, documented
+there, covered by integration tests, and the WeasyPrint dependency is
+pinned accordingly. No other module may import WeasyPrint internals.
+
+PDF byte determinism is achieved by setting `SOURCE_DATE_EPOCH` inside
+the adapter around `write_pdf`, which stabilizes embedded font
+timestamps.
 
 ## 13. Determinism
 

@@ -6,7 +6,21 @@ The project is intentionally domain-neutral. It provides a small semantic docume
 
 ## Status
 
-Specification-first foundation. The initial implementation should follow the contracts in `docs/`.
+Milestones 1-2 are implemented: the authoring core (parser, semantic
+AST, registry, validation, deterministic AST/HTML) and the fixed-page
+pipeline (theme regions, WeasyPrint authoritative layout, overflow
+diagnostics, deterministic PDF, layout inspection). WeasyPrint is the
+single fixed-page layout backend; see `docs/IMPLEMENTATION_PLAN.md` for
+the revised milestone boundary.
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .[dev]
+pagedoc lint examples/product-handbook/document.yaml
+pagedoc ast examples/product-handbook/pages/01-overview.book.md
+pagedoc render examples/product-handbook/document.yaml --html-out out/book.html --pdf-out out/book.pdf
+pagedoc inspect examples/layout-gallery/document.yaml --json
+```
 
 ## Core idea
 

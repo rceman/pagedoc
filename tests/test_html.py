@@ -83,8 +83,14 @@ def test_row_split_preset_classes():
 
 
 def test_row_auto_resolves_deterministically():
+    # M2 auto rules: request+note -> wide-left, request+response -> equal
     html = _render_page_text(
         "<row>\n<request>\nG\n</request>\n<note>\nn\n</note>\n</row>\n"
+    )
+    assert "pd-row--split-wide-left" in html
+    assert 'data-pd-split="auto"' in html
+    html = _render_page_text(
+        "<row>\n<request>\nG\n</request>\n<response>\n200\n</response>\n</row>\n"
     )
     assert "pd-row--split-equal" in html
     assert 'data-pd-split="auto"' in html
@@ -139,8 +145,8 @@ def test_full_document_html(tmp_path):
     )
     doc = load_document(str(manifest), get_registry())
     theme = load_theme(doc.theme, doc.manifest_dir)
-    html1 = render_document(doc, theme)
-    html2 = render_document(load_document(str(manifest), get_registry()), theme)
+    html1 = render_document(doc, theme).html
+    html2 = render_document(load_document(str(manifest), get_registry()), theme).html
     assert html1 == html2  # deterministic
     assert html1.index('id="pd-page-p1"') < html1.index('id="pd-page-p2"')  # order
     assert "<title>Doc</title>" in html1
