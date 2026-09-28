@@ -103,6 +103,7 @@ Markdown already covers headings, prose, lists, tables, emphasis, links, inline 
 - `docs/ARCHITECTURE.md` - parser, AST, registry, renderer and backend boundaries
 - `docs/THEME_SPEC.md` - theme responsibilities and geometry ownership
 - `docs/IMPLEMENTATION_PLAN.md` - staged implementation plan
+- `docs/AST_FORMAT.md` - serialized AST node shapes (schema_version 1)
 - `examples/product-handbook/` - neutral example document
 - `tests/fixtures/` - contract fixtures for parser and AST behavior
 - `AGENTS.md` - implementation constraints for coding agents

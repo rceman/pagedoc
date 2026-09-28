@@ -2,8 +2,8 @@
   "schema_version": 1,
   "type": "page",
   "metadata": {
-    "id": "request-response-fixture",
     "group": "API Guide",
+    "id": "request-response-fixture",
     "title": "Request and Response"
   },
   "children": [
@@ -20,7 +20,14 @@
             "lang": "http",
             "title": "Lookup"
           },
-          "raw": "GET /api/items/42\nAccept: application/json"
+          "raw": "GET /api/items/42\nAccept: application/json",
+          "source": {
+            "path": "tests/fixtures/request-response.book.md",
+            "start_line": 9,
+            "start_col": 1,
+            "end_line": 12,
+            "end_col": 11
+          }
         },
         {
           "type": "response",
@@ -28,9 +35,30 @@
             "lang": "auto",
             "status": "200"
           },
-          "raw": "{\"id\":42,\"name\":\"Demo\"}"
+          "raw": "{\"id\":42,\"name\":\"Demo\"}",
+          "source": {
+            "path": "tests/fixtures/request-response.book.md",
+            "start_line": 14,
+            "start_col": 1,
+            "end_line": 16,
+            "end_col": 12
+          }
         }
-      ]
+      ],
+      "source": {
+        "path": "tests/fixtures/request-response.book.md",
+        "start_line": 7,
+        "start_col": 1,
+        "end_line": 18,
+        "end_col": 7
+      }
     }
-  ]
+  ],
+  "source": {
+    "path": "tests/fixtures/request-response.book.md",
+    "start_line": 1,
+    "start_col": 1,
+    "end_line": 19,
+    "end_col": 1
+  }
 }

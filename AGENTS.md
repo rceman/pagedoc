@@ -66,6 +66,22 @@ Milestone 1 includes:
 
 Milestone 1 does not include PDF generation or consumer migration.
 
+## Development commands
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .[dev]
+.venv/bin/python -m pytest tests            # full suite
+.venv/bin/pagedoc lint examples/product-handbook/document.yaml
+.venv/bin/pagedoc ast tests/fixtures/request-response.book.md
+.venv/bin/pagedoc render examples/product-handbook/document.yaml --html-out out.html
+```
+
+Package layout: `src/pagedoc/` (`errors`, `ast`, `attributes`, `markdown`,
+`parser`, `registry`, `validation`, `document`, `theme/`, `render/`,
+`cli`). The serialized AST node vocabulary is documented in
+`docs/AST_FORMAT.md`.
+
 ## Completion standard
 
 Before reporting completion:

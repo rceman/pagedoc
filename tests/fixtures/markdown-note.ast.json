@@ -1,0 +1,316 @@
+{
+  "schema_version": 1,
+  "type": "page",
+  "metadata": {
+    "group": "Guide",
+    "id": "markdown-note-fixture",
+    "title": "Markdown and Note"
+  },
+  "children": [
+    {
+      "type": "paragraph",
+      "children": [
+        {
+          "type": "text",
+          "text": "Intro paragraph with ",
+          "source": {
+            "path": "tests/fixtures/markdown-note.book.md",
+            "start_line": 7,
+            "start_col": 1,
+            "end_line": 7,
+            "end_col": 49
+          }
+        },
+        {
+          "type": "code_inline",
+          "text": "inline code",
+          "source": {
+            "path": "tests/fixtures/markdown-note.book.md",
+            "start_line": 7,
+            "start_col": 1,
+            "end_line": 7,
+            "end_col": 49
+          }
+        },
+        {
+          "type": "text",
+          "text": " and ",
+          "source": {
+            "path": "tests/fixtures/markdown-note.book.md",
+            "start_line": 7,
+            "start_col": 1,
+            "end_line": 7,
+            "end_col": 49
+          }
+        },
+        {
+          "type": "strong",
+          "children": [
+            {
+              "type": "text",
+              "text": "bold",
+              "source": {
+                "path": "tests/fixtures/markdown-note.book.md",
+                "start_line": 7,
+                "start_col": 1,
+                "end_line": 7,
+                "end_col": 49
+              }
+            }
+          ],
+          "source": {
+            "path": "tests/fixtures/markdown-note.book.md",
+            "start_line": 7,
+            "start_col": 1,
+            "end_line": 7,
+            "end_col": 49
+          }
+        },
+        {
+          "type": "text",
+          "text": ".",
+          "source": {
+            "path": "tests/fixtures/markdown-note.book.md",
+            "start_line": 7,
+            "start_col": 1,
+            "end_line": 7,
+            "end_col": 49
+          }
+        }
+      ],
+      "source": {
+        "path": "tests/fixtures/markdown-note.book.md",
+        "start_line": 7,
+        "start_col": 1,
+        "end_line": 7,
+        "end_col": 49
+      }
+    },
+    {
+      "type": "table",
+      "children": [
+        {
+          "type": "table_row",
+          "attrs": {
+            "header": true
+          },
+          "children": [
+            {
+              "type": "table_cell",
+              "attrs": {
+                "header": true
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "text": "Key",
+                  "source": {
+                    "path": "tests/fixtures/markdown-note.book.md",
+                    "start_line": 9,
+                    "start_col": 1,
+                    "end_line": 9,
+                    "end_col": 16
+                  }
+                }
+              ],
+              "source": {
+                "path": "tests/fixtures/markdown-note.book.md",
+                "start_line": 9,
+                "start_col": 1,
+                "end_line": 9,
+                "end_col": 16
+              }
+            },
+            {
+              "type": "table_cell",
+              "attrs": {
+                "header": true
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "text": "Value",
+                  "source": {
+                    "path": "tests/fixtures/markdown-note.book.md",
+                    "start_line": 9,
+                    "start_col": 1,
+                    "end_line": 9,
+                    "end_col": 16
+                  }
+                }
+              ],
+              "source": {
+                "path": "tests/fixtures/markdown-note.book.md",
+                "start_line": 9,
+                "start_col": 1,
+                "end_line": 9,
+                "end_col": 16
+              }
+            }
+          ],
+          "source": {
+            "path": "tests/fixtures/markdown-note.book.md",
+            "start_line": 9,
+            "start_col": 1,
+            "end_line": 9,
+            "end_col": 16
+          }
+        },
+        {
+          "type": "table_row",
+          "attrs": {
+            "header": false
+          },
+          "children": [
+            {
+              "type": "table_cell",
+              "attrs": {
+                "header": false
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "text": "mode",
+                  "source": {
+                    "path": "tests/fixtures/markdown-note.book.md",
+                    "start_line": 11,
+                    "start_col": 1,
+                    "end_line": 11,
+                    "end_col": 19
+                  }
+                }
+              ],
+              "source": {
+                "path": "tests/fixtures/markdown-note.book.md",
+                "start_line": 11,
+                "start_col": 1,
+                "end_line": 11,
+                "end_col": 19
+              }
+            },
+            {
+              "type": "table_cell",
+              "attrs": {
+                "header": false
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "text": "compact",
+                  "source": {
+                    "path": "tests/fixtures/markdown-note.book.md",
+                    "start_line": 11,
+                    "start_col": 1,
+                    "end_line": 11,
+                    "end_col": 19
+                  }
+                }
+              ],
+              "source": {
+                "path": "tests/fixtures/markdown-note.book.md",
+                "start_line": 11,
+                "start_col": 1,
+                "end_line": 11,
+                "end_col": 19
+              }
+            }
+          ],
+          "source": {
+            "path": "tests/fixtures/markdown-note.book.md",
+            "start_line": 11,
+            "start_col": 1,
+            "end_line": 11,
+            "end_col": 19
+          }
+        }
+      ],
+      "source": {
+        "path": "tests/fixtures/markdown-note.book.md",
+        "start_line": 9,
+        "start_col": 1,
+        "end_line": 11,
+        "end_col": 19
+      }
+    },
+    {
+      "type": "note",
+      "attrs": {
+        "title": "Reminder",
+        "tone": "note"
+      },
+      "body": [
+        {
+          "type": "paragraph",
+          "children": [
+            {
+              "type": "text",
+              "text": "Markdown bodies use the normalized subtree: ",
+              "source": {
+                "path": "tests/fixtures/markdown-note.book.md",
+                "start_line": 14,
+                "start_col": 1,
+                "end_line": 14,
+                "end_col": 61
+              }
+            },
+            {
+              "type": "emphasis",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "emphasis",
+                  "source": {
+                    "path": "tests/fixtures/markdown-note.book.md",
+                    "start_line": 14,
+                    "start_col": 1,
+                    "end_line": 14,
+                    "end_col": 61
+                  }
+                }
+              ],
+              "source": {
+                "path": "tests/fixtures/markdown-note.book.md",
+                "start_line": 14,
+                "start_col": 1,
+                "end_line": 14,
+                "end_col": 61
+              }
+            },
+            {
+              "type": "text",
+              "text": " text.",
+              "source": {
+                "path": "tests/fixtures/markdown-note.book.md",
+                "start_line": 14,
+                "start_col": 1,
+                "end_line": 14,
+                "end_col": 61
+              }
+            }
+          ],
+          "source": {
+            "path": "tests/fixtures/markdown-note.book.md",
+            "start_line": 14,
+            "start_col": 1,
+            "end_line": 14,
+            "end_col": 61
+          }
+        }
+      ],
+      "source": {
+        "path": "tests/fixtures/markdown-note.book.md",
+        "start_line": 13,
+        "start_col": 1,
+        "end_line": 15,
+        "end_col": 8
+      }
+    }
+  ],
+  "source": {
+    "path": "tests/fixtures/markdown-note.book.md",
+    "start_line": 1,
+    "start_col": 1,
+    "end_line": 16,
+    "end_col": 1
+  }
+}
