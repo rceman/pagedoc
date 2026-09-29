@@ -203,3 +203,15 @@ def test_builtin_theme_uses_pinned_local_fonts():
     for role in ("prose", "mono"):
         assert theme.fonts[role].source
         assert not theme.fonts[role].source.startswith("http")
+
+
+def test_fixture_svgs_contain_no_text_elements():
+    """Visual-conformance SVGs must be pure geometry — no font-dependent
+    <text> (a generic font-family would pull a host font into the PDF)."""
+
+    assets = os.path.join(VP, "assets")
+    total = 0
+    for name in sorted(os.listdir(assets)):
+        if name.endswith(".svg"):
+            total += len(re.findall(r"<text[\\s>]", open(os.path.join(assets, name)).read()))
+    assert total == 0, f"expected 0 <text> elements in fixture SVGs, found {total}"

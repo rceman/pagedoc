@@ -258,8 +258,21 @@ The theme loader enforces:
 - spacing values must be non-negative numbers;
 - split ratios must be lists of >= 2 positive numbers;
 - local CSS exists; font `source` files exist and are local;
+- theme CSS must not contain remote resources — `url(http...)`,
+  `url(//cdn...)`, and `@import` of remote URLs are rejected at load
+  time; local relative `url()`, `data:` URIs, and `#fragment`
+  references are allowed. M2 does not rebase `url()` paths inside
+  theme CSS: such URLs resolve against the document's base directory,
+  so a theme shared across documents should avoid CSS image
+  dependencies entirely (the Book v2 reference theme is pure CSS
+  geometry + pinned fonts);
 - no remote font/import dependency is required;
 - deterministic asset resolution.
+
+A theme is selected by the document manifest: `theme: default` uses the
+packaged reference theme; any other value is a `theme.yaml` path
+resolved relative to the manifest. `examples/themes/book-v2-reference/`
+is the standalone square-page reference theme demonstrating this.
 
 ## 13. Geometric primitives
 

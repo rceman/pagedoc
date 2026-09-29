@@ -9,7 +9,7 @@ A forecast lookup is a plain GET with query parameters.
 <row>
 
 <request title="Forecast lookup">
-GET /v1/forecast?lat=56.95&amp;lon=24.10&amp;days=3 HTTP/1.1
+GET /v1/forecast?lat=56.95&lon=24.10&days=3 HTTP/1.1
 Host: api.weather.example
 </request>
 

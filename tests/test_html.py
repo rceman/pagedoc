@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from conftest import DEFAULT_FM, write_page
+from conftest import DEFAULT_FM, REPO_ROOT, write_page
 from pagedoc.document import load_document
 from pagedoc.parser import parse_page_file
 from pagedoc.registry import get_registry
@@ -186,3 +186,24 @@ def test_browser_malformed_userinfo_no_crash():
     html = _render_page_text("<browser>\nftp://u@@host.test/\n</browser>\n")
     assert "pd-browser" in html
     assert "u@" in html and "host.test" in html
+
+
+def test_request_raw_ampersand_preserved_and_escaped_in_html():
+    """Raw protocol text keeps literal &; HTML output escapes it."""
+
+    html = _render_page_text(
+        "<request>\nGET /v1/x?a=1&b=2 HTTP/1.1\n</request>\n"
+    )
+    assert "a=1&amp;b=2" in html  # escaped in HTML serialization
+    assert "a=1&b=2" not in html.split("pd-request-body")[1].split("</pre>")[0]
+
+
+def test_gallery_request_note_source_uses_raw_ampersand():
+    src = open(
+        os.path.join(
+            REPO_ROOT, "examples", "layout-gallery", "pages",
+            "04-request-note.book.md",
+        )
+    ).read()
+    assert "lat=56.95&lon=24.10" in src
+    assert "lat=56.95&amp;lon=24.10" not in src

@@ -132,6 +132,7 @@ def _load_theme_text(theme_text: str, theme_path: str, theme_dir: str) -> Theme:
             raise _err(theme_path, f"theme CSS file not found: '{css_ref}'")
         with open(css_path, "r", encoding="utf-8") as f:
             css_text = f.read()
+        _check_css_is_local(css_text, css_path)
 
     return Theme(
         id=theme_id,
@@ -148,6 +149,36 @@ def _load_theme_text(theme_text: str, theme_path: str, theme_dir: str) -> Theme:
 
 def _is_remote(value: str) -> bool:
     return "://" in value or value.startswith("//")
+
+
+# Remote references inside theme CSS: @import with a URL, or url(...) whose
+# target has a scheme/protocol-relative host. Local relative paths, data:
+# URLs, and fragment references (#id) are allowed. Local url() targets are
+# not rebased in M2 — keep theme CSS free of external-image dependencies
+# (documented in THEME_SPEC).
+import re as _re
+
+_CSS_URL_RE = _re.compile(r"url\(\s*['\"]?\s*([^)'\"\s]+)")
+_CSS_IMPORT_RE = _re.compile(r"@import\s+(?:url\(\s*)?['\"]?([^'\"\s)]+)")
+_CSS_FORBIDDEN_SCHEMES = ("http:", "https:", "//")
+
+
+def _check_css_is_local(css_text: str, css_path: str) -> None:
+    for m in _CSS_URL_RE.finditer(css_text):
+        target = m.group(1)
+        if target.startswith(_CSS_FORBIDDEN_SCHEMES):
+            raise _err(
+                css_path,
+                f"theme CSS must not reference remote resources: '{target}'",
+            )
+    for m in _CSS_IMPORT_RE.finditer(css_text):
+        target = m.group(1)
+        if target.startswith(_CSS_FORBIDDEN_SCHEMES):
+            raise _err(
+                css_path,
+                f"theme CSS @import must not reference remote resources: "
+                f"'{target}'",
+            )
 
 
 def _number(mapping: dict, key: str, path: str, ctx: str) -> float:

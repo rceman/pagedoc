@@ -131,7 +131,10 @@ Implement:
 > - `examples/visual-primitives/` geometric-primitive conformance corpus
 >   with two independent raster validators (PDFium, MuPDF);
 > - experimental `--flattened-pdf-out` pixel-locked PDF derived from the
->   validated vector PDF.
+>   validated vector PDF;
+> - multi-theme selection via the document manifest plus the standalone
+>   `examples/themes/book-v2-reference/` square-page theme proving the
+>   same authored sources compose through two different physical themes.
 
 Critical requirement:
 

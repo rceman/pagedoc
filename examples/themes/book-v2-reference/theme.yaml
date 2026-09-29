@@ -1,0 +1,54 @@
+id: book-v2-reference
+version: 1
+
+# Book v2 reference theme: square 2500x2500 CSS-px physical page.
+# Standalone example theme — theme geometry lives here, never in
+# .book.md sources. PageDoc core stays generic.
+page:
+  width: 2500
+  height: 2500
+  unit: px
+
+regions:
+  sidebar:
+    x: 0
+    y: 0
+    width: 250
+    height: 2500
+  header:
+    x: 250
+    y: 0
+    width: 2250
+    height: 513
+  content:
+    x: 300
+    y: 513
+    width: 2150
+    height: 1687
+  footer:
+    x: 250
+    y: 2250
+    width: 2250
+    height: 250
+
+spacing:
+  block: 25
+  internal: 30
+  row-gap: 25
+
+splits:
+  equal: [1, 1]
+  wide-left: [2, 1]
+  wide-right: [1, 2]
+
+# Pinned local fonts (same vendored OFL builds as the builtin theme;
+# SHA-256 recorded in fonts/SHA256SUMS.txt).
+fonts:
+  prose:
+    family: "'Inter', 'Segoe UI', 'Helvetica Neue', 'DejaVu Sans', Arial, sans-serif"
+    source: fonts/Inter-Regular.ttf
+  mono:
+    family: "'Roboto Mono', 'DejaVu Sans Mono', Consolas, 'Liberation Mono', Menlo, monospace"
+    source: fonts/RobotoMono-Regular.ttf
+
+css: theme.css

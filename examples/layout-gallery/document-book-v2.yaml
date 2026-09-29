@@ -1,0 +1,16 @@
+id: layout-gallery
+title: PageDoc Layout Gallery
+# Same authored pages as document.yaml, rendered through the standalone
+# Book v2 reference theme — theme selection is document-level config only.
+theme: ../themes/book-v2-reference/theme.yaml
+pages:
+  - pages/01-prose.book.md
+  - pages/02-tables.book.md
+  - pages/03-request-response.book.md
+  - pages/04-request-note.book.md
+  - pages/05-compare-horizontal.book.md
+  - pages/06-compare-vertical.book.md
+  - pages/07-flow.book.md
+  - pages/08-media.book.md
+  - pages/09-long-code.book.md
+  - pages/10-mixed.book.md
