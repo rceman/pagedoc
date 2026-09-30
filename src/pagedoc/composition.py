@@ -115,7 +115,9 @@ class CompositionPageTrace:
     selected_deviation_count: int = 0
     candidates: list[CandidateEvaluation] = field(default_factory=list)
     best_non_fitting: dict[str, str] | None = None
-    outcome: str = "not-searched"  # searched | too-many-candidates
+    # selected | no-fit | too-many-candidates ("pending" only until the
+    # search loop resolves the page — never a valid final state)
+    outcome: str = "pending"
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {

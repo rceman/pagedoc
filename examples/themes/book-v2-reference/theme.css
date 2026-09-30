@@ -333,7 +333,11 @@ td code { background: var(--pd-page-bg); }
 }
 .pd-compare-sides { display: flex; }
 .pd-compare--layout-vertical .pd-compare-sides { flex-direction: column; }
-.pd-compare-side { flex: 1 1 0; min-width: 0; padding: 25px 30px; }
+/* horizontal shares width; vertical stacks at intrinsic height —
+   flex: 1 1 0 in a column would shrink/escape children */
+.pd-compare-side { min-width: 0; padding: 25px 30px; }
+.pd-compare--layout-horizontal .pd-compare-side { flex: 1 1 0; }
+.pd-compare--layout-vertical .pd-compare-side { flex: 0 0 auto; }
 .pd-compare-side + .pd-compare-side { border-left: 3px solid var(--pd-line-strong); }
 .pd-compare--layout-vertical .pd-compare-side + .pd-compare-side {
   border-left: none; border-top: 3px solid var(--pd-line-strong);
@@ -353,12 +357,14 @@ td code { background: var(--pd-page-bg); }
 .pd-flow-steps { display: flex; gap: 30px; list-style: none; margin: 0; padding: 0; }
 .pd-flow--layout-vertical .pd-flow-steps { flex-direction: column; }
 .pd-step {
-  flex: 1 1 0; min-width: 0;
+  min-width: 0;
   border: 3px solid var(--pd-line-strong); border-radius: 12px;
   padding: 22px 30px;
   background: var(--pd-panel);
 }
-.pd-flow--layout-horizontal .pd-step { position: relative; }
+/* horizontal steps share width; vertical steps keep intrinsic height */
+.pd-flow--layout-horizontal .pd-step { flex: 1 1 0; position: relative; }
+.pd-flow--layout-vertical .pd-step { flex: 0 0 auto; }
 .pd-flow--layout-horizontal .pd-step + .pd-step { margin-left: 30px; }
 /* connector = pure CSS box geometry (shaft + arrowhead), never a glyph */
 .pd-flow--layout-horizontal .pd-step + .pd-step::before {

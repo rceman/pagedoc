@@ -169,8 +169,10 @@ def build_document(
             if winner is not None:
                 page_trace.selected = dict(winner.resolutions)
                 page_trace.selected_deviation_count = winner.deviation_count
+                page_trace.outcome = "selected"
                 preferred_map.update(winner.resolutions)
             else:
+                page_trace.outcome = "no-fit"
                 best = select_best_non_fitting(page_trace.candidates)
                 if best is not None:
                     page_trace.best_non_fitting = dict(best.resolutions)

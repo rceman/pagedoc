@@ -229,6 +229,22 @@ For `layout="auto"` or `split="auto"`, the renderer/theme may resolve a determin
 
 The decision must not depend on randomness, clock time, viewport state, or network resources.
 
+### Intrinsic vertical stacking contract
+
+For vertical semantic compositions (`compare`, `flow`), child blocks
+must retain their intrinsic block height: each side/step occupies
+exactly the space its rendered content needs, and no descendant may
+cross into a sibling block.
+
+Horizontal equal-width distribution and vertical intrinsic-height
+stacking are different layout contracts. A theme must not reuse a
+shared-height flex rule across both axes — e.g. `flex: 1 1 0` on
+compare sides or flow steps is correct for `flex-direction: row`
+(equal columns) but wrong for `flex-direction: column`, where it can
+shrink a tall child below its content and let text escape into the
+sibling block. Use `flex: 0 0 auto` (or equivalent intrinsic sizing)
+on the vertical axis.
+
 ## 11. Overflow
 
 Themes must define a fixed content region for fixed-page output.
