@@ -308,3 +308,109 @@ def test_book_footer_logo_renders_both_renderers(tmp_path):
         bluish = [c for c, v in colors if v[2] > 150 and v[0] < 80]
         whitish = [c for c, v in colors if min(v) > 220]
         assert bluish and whitish, (name, "missing logo colors")
+
+
+# ---------------- M2-006: footer-logo stability ------------------------------
+
+ASSETS = os.path.join(
+    REPO_ROOT, "examples", "themes", "book-v2-reference", "assets"
+)
+LOGO_BOX = (292, 2298, 430, 2452)  # CSS px on the 2500x2500 page
+
+
+def _logo_crop_hashes(pdf_path, fn=raster.rasterize_pdfium, dpi=96):
+    import hashlib
+
+    out = []
+    for im in fn(pdf_path, dpi):
+        out.append(
+            hashlib.sha256(im.crop(LOGO_BOX).convert("RGB").tobytes()).hexdigest()
+        )
+    return out
+
+
+def test_active_footer_logo_is_mask_free_svg():
+    """The active logo must be mask-free geometry — the masked variant is
+    preserved only as provenance (footer-logo-reference.svg)."""
+    svg = open(os.path.join(ASSETS, "footer-logo.svg")).read()
+    for bad in ("<mask", "<clipPath", "<filter", "<text", "href", "script"):
+        assert bad not in svg, bad
+    ref = open(os.path.join(ASSETS, "footer-logo-reference.svg")).read()
+    assert "<mask" in ref  # provenance file keeps the original artwork
+
+
+@pytest.mark.skipif(not raster.pdfium_available(), reason="needs pypdfium2")
+def test_book_footer_logo_identical_all_ten_pages(tmp_path):
+    from pagedoc.pipeline import build_document
+
+    doc = load_document(BOOK_MANIFEST, get_registry())
+    theme = load_theme(doc.theme, doc.manifest_dir)
+    build = build_document(doc, theme)
+    pdf = tmp_path / "book.pdf"
+    build.rendered.write_pdf(str(pdf))
+    hashes = _logo_crop_hashes(str(pdf))
+    assert len(set(hashes)) == 1, hashes
+
+
+@pytest.mark.skipif(not raster.pdfium_available(), reason="needs pypdfium2")
+def test_rendered_document_serialization_is_stable(tmp_path):
+    """Same RenderedDocument serialized repeatedly must be byte-identical
+    (the masked-SVG defect mutated state across serializations)."""
+    from pagedoc.pipeline import build_document
+
+    doc = load_document(BOOK_MANIFEST, get_registry())
+    theme = load_theme(doc.theme, doc.manifest_dir)
+    build = build_document(doc, theme)
+    rd = build.rendered
+    a = rd.pdf_bytes()
+    b = rd.pdf_bytes()
+    out = tmp_path / "book.pdf"
+    rd.write_pdf(str(out))
+    c = out.read_bytes()
+    assert a == b == c
+
+
+@pytest.mark.skipif(not raster.pdfium_available(), reason="needs pypdfium2")
+def test_serialization_order_does_not_change_output(tmp_path):
+    """pdf_bytes() then write_pdf() and vice versa must rasterize
+    identically on every page."""
+    from pagedoc.pipeline import build_document
+    from PIL import ImageChops
+
+    doc = load_document(BOOK_MANIFEST, get_registry())
+    theme = load_theme(doc.theme, doc.manifest_dir)
+    build = build_document(doc, theme)
+
+    # order A: bytes then file
+    a_bytes = build.rendered.pdf_bytes()
+    fa = tmp_path / "a.pdf"
+    build.rendered.write_pdf(str(fa))
+    # order B: file then bytes
+    fb = tmp_path / "b.pdf"
+    build.rendered.write_pdf(str(fb))
+    b_bytes = build.rendered.pdf_bytes()
+    assert a_bytes == b_bytes == fa.read_bytes() == fb.read_bytes()
+
+
+@pytest.mark.skipif(not raster.pdfium_available(), reason="needs pypdfium2")
+def test_vector_vs_flattened_identical_all_ten_pages(tmp_path):
+    from pagedoc.flatten import assemble_images_pdf, rasterize_pdf_pages
+    from pagedoc.pipeline import build_document
+    from PIL import ImageChops
+
+    doc = load_document(BOOK_MANIFEST, get_registry())
+    theme = load_theme(doc.theme, doc.manifest_dir)
+    build = build_document(doc, theme)
+    vec = tmp_path / "v.pdf"
+    build.rendered.write_pdf(str(vec))
+    flat = tmp_path / "f.pdf"
+    flat.write_bytes(
+        assemble_images_pdf(*rasterize_pdf_pages(build.rendered.pdf_bytes(), 96), 96)
+    )
+    v = raster.rasterize_pdfium(str(vec), 96)
+    f = raster.rasterize_pdfium(str(flat), 96)
+    assert len(v) == len(f) == 10
+    for i in range(10):
+        d = ImageChops.difference(v[i], f[i]).convert("L")
+        nz = sum(1 for p in d.get_flattened_data() if p)
+        assert nz == 0, f"page {i + 1}: {nz} differing px"
