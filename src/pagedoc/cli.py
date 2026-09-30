@@ -150,6 +150,7 @@ def _inspect_payload(doc, build: BuildResult, theme) -> dict[str, Any]:
         "pages_physical": build.layout.physical_page_count,
         "all_fit": build.layout.all_fit
         and build.layout.physical_page_count == len(doc.pages),
+        "composition": build.composition.to_dict(),
         "pages": pages,
     }
 
@@ -185,6 +186,27 @@ def _cmd_inspect(args) -> int:
                 else ""
             )
             print(f"  page {p['index']}: {p['page_id']}  fit={fit}  blocks={p['blocks']}{metrics}{resolved}")
+        comp = payload["composition"]
+        if comp["pages"]:
+            print(f"  Composition ({comp['mode']}, {comp['layout_passes']} layout passes):")
+            for pt in comp["pages"]:
+                print(
+                    f"    page {pt['page_id']}: {pt['candidate_space']} candidate"
+                    f" assignments, {pt['evaluated']} evaluated"
+                )
+                if pt.get("selected"):
+                    changes = [
+                        f"{k}={v}" for k, v in pt["selected"].items()
+                    ]
+                    print(
+                        f"      selected {', '.join(changes)} "
+                        f"({pt['selected_deviation_count']} preferred "
+                        f"deviation{'s' if pt['selected_deviation_count'] != 1 else ''})"
+                    )
+                elif pt["outcome"] == "too-many-candidates":
+                    print("      too many combinations; make choices explicit")
+                else:
+                    print("      no fitting assignment found")
     if build.diagnostics:
         _print_diagnostic_list(build.diagnostics)
     return 0 if payload["all_fit"] else 1

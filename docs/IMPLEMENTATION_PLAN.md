@@ -155,13 +155,24 @@ Acceptance includes representative fixtures for:
 
 ## Milestone 3 - composition, performance and integration surface
 
-Later work, now that WeasyPrint/PDF lives in M2:
+### M3.1 — implemented: composition core
 
-- per-component auto-orientation candidate evaluation and composition
-  scoring (M2's auto fallback is bounded: horizontal-first, then all
-  failing auto nodes flip to vertical in one re-render);
+- per-component auto candidate evaluation replacing M2's all-flip
+  fallback: page-local exact Cartesian search (bounded at 24
+  assignments) over authored `auto` decisions (`row split`,
+  `compare layout`, `flow layout`), each candidate measured through
+  WeasyPrint;
+- deterministic winner ranking: fitting first, then fewest deviations
+  from preferred, then lowest real `content_used`, then stable order;
+- byte-identical output for pages that already fit (one layout pass);
+- structured composition trace in `BuildResult` and `pagedoc inspect`
+  (JSON + human summary);
+- `examples/composition-gallery/` acceptance corpus and
+  `scripts/benchmark_composition.py` instrumentation.
+
+### M3.2/M3.3 — later work
+
 - richer automatic composition and fit heuristics;
-- performance work driven by a benchmark suite;
 - public Python package metadata polish;
 - external theme packages;
 - migration/import adapters;

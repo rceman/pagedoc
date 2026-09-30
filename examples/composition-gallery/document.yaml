@@ -1,0 +1,10 @@
+id: composition-gallery
+title: Composition Gallery
+theme: default
+pages:
+  - pages/01-compare-recovery.book.md
+  - pages/02-localized-auto.book.md
+  - pages/03-row-recovery.book.md
+  - pages/04-mixed-recovery.book.md
+  - pages/05-flow-recovery.book.md
+  - pages/06-multi-auto.book.md

@@ -198,6 +198,8 @@ def _render_row(node, spec, registry, ctx) -> str:
     node_id = ""
     if ctx is not None:
         node_id = ctx.node_id(node, "component")
+        if authored_split == "auto":
+            resolved_split = ctx.override(node_id, "split") or resolved_split
         ctx.record_resolved(node_id, "split", resolved_split)
     lines = [
         f'<div class="pd-row pd-row--split-{esc_attr(resolved_split)} pd-row--align-{esc_attr(align)}"'
@@ -232,7 +234,8 @@ def _render_compare(node, spec, registry, ctx) -> str:
     node_id = ""
     if ctx is not None:
         node_id = ctx.node_id(node, "component")
-        resolved = ctx.override(node_id, "layout") or resolved
+        if authored_layout == "auto":
+            resolved = ctx.override(node_id, "layout") or resolved
         ctx.record_resolved(node_id, "layout", resolved)
     labels = node.attrs.get("labels")
     label_parts = [p.strip() for p in str(labels).split("|")] if labels else []
@@ -261,7 +264,8 @@ def _render_flow(node, spec, registry, ctx) -> str:
     node_id = ""
     if ctx is not None:
         node_id = ctx.node_id(node, "component")
-        resolved = ctx.override(node_id, "layout") or resolved
+        if authored_layout == "auto":
+            resolved = ctx.override(node_id, "layout") or resolved
         ctx.record_resolved(node_id, "layout", resolved)
     lines = [
         f'<div class="pd-flow pd-flow--layout-{esc_attr(resolved)}"'

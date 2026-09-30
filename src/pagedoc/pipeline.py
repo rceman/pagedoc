@@ -2,16 +2,17 @@
 diagnostics.
 
 The authoritative layout path (ARCHITECTURE.md section 9): generated
-HTML/CSS is rendered ONCE by the backend; the returned
-``RenderedDocument`` is both what diagnostics measure and what PDF
-serialization emits. There is no second layout pass to produce output.
+HTML/CSS is rendered by the backend; the returned ``RenderedDocument``
+is both what diagnostics measure and what PDF serialization emits.
+There is no second layout pass to produce output.
 
-``auto`` orientations for ``compare``/``flow`` resolve by real fit: the
-first pass renders them horizontal; if a page then overflows, every still
--horizontal ``auto`` node on an overflowing page flips to vertical and the
-document is re-rendered once. A page that still overflows fails. This is
-a deliberately bounded, deterministic fallback — per-component candidate
-evaluation is M3 scope.
+``auto`` values for ``row split`` / ``compare layout`` / ``flow layout``
+resolve by real fit. The first pass renders every auto decision at its
+registry-preferred value. Pages that then overflow enter a bounded,
+page-local exact search over candidate assignments (composition.py);
+each candidate is evaluated by a real backend layout pass and the
+deterministic winner is re-rendered once as the final authoritative
+document. Pages that fit in the first pass are never recomposed.
 """
 
 from __future__ import annotations
@@ -21,6 +22,19 @@ import pathlib
 from dataclasses import dataclass, field
 
 from .backends.base import DocumentLayout, RenderedDocument
+from .composition import (
+    MAX_COMPOSITION_CANDIDATES_PER_PAGE,
+    CompositionPageTrace,
+    CompositionTrace,
+    candidate_space_size,
+    deviation_count,
+    discover_auto_decisions,
+    enumerate_assignments,
+    evaluate_candidate,
+    page_layout_for,
+    select_best_non_fitting,
+    select_winner,
+)
 from .document import Document
 from .errors import Diagnostic
 from .registry import ComponentSpec, get_registry
@@ -38,6 +52,7 @@ class BuildResult:
     # The measured backend document — serialize THIS for PDF output.
     rendered: RenderedDocument | None = None
     diagnostics: list[Diagnostic] = field(default_factory=list)
+    composition: CompositionTrace = field(default_factory=CompositionTrace)
 
     @property
     def fits(self) -> bool:
@@ -48,50 +63,160 @@ def _base_url(manifest_dir: str) -> str:
     return pathlib.Path(os.path.abspath(manifest_dir)).as_uri() + "/"
 
 
-def _auto_flippable(build: RenderResult, layout: DocumentLayout) -> dict[str, str]:
-    """auto compare/flow nodes still rendered horizontal on failing pages."""
-
-    failing_indexes = {p.index for p in layout.pages if not p.fits}
-    flips: dict[str, str] = {}
-    for key, value in build.resolved.items():
-        node_id, what = key.rsplit(":", 1)
-        if what != "layout" or value != "horizontal":
-            continue
-        ref = build.node_map.get(node_id)
-        if ref is None or ref.page_index not in failing_indexes:
-            continue
-        node = ref.node
-        if getattr(node, "name", None) in ("compare", "flow") and node.attrs.get("layout") == "auto":
-            flips[f"{node_id}:layout"] = "vertical"
-    return flips
-
-
 def build_document(
     document: Document,
     theme: Theme,
     registry: dict[str, ComponentSpec] | None = None,
 ) -> BuildResult:
-    """Render HTML, measure with the backend, resolve auto layouts,
-    produce diagnostics.
-
-    Exactly one backend layout pass normally; at most two when ``auto``
-    compare/flow orientation needs the bounded vertical fallback.
-    """
+    """Render HTML, measure with the backend, recover overflow via bounded
+    auto-composition search, produce diagnostics."""
 
     from .backends import weasyprint  # lazy: keeps lint/ast CLI fast
 
     reg = registry if registry is not None else get_registry()
     base_url = _base_url(document.manifest_dir)
+    trace = CompositionTrace()
+    renders: dict[tuple, tuple[RenderResult, RenderedDocument]] = {}
 
-    render = render_document(document, theme, reg)
-    rendered = weasyprint.render(render.html, base_url)
+    def do_render(resolutions: dict[str, str] | None = None):
+        key = tuple(sorted((resolutions or {}).items()))
+        if key not in renders:
+            render = render_document(document, theme, reg, resolutions=resolutions)
+            rendered = weasyprint.render(render.html, base_url)
+            renders[key] = (render, rendered)
+            trace.layout_passes += 1
+        return renders[key]
 
-    flips = _auto_flippable(render, rendered.layout)
-    if flips:
-        render = render_document(document, theme, reg, resolutions=flips)
-        rendered = weasyprint.render(render.html, base_url)
+    render, rendered = do_render()
+    preferred_map: dict[str, str] = {}
+    expected_blocks = {
+        p.index: len(document.pages[p.index].children)
+        for p in rendered.layout.pages
+        if p.index < len(document.pages)
+    }
 
-    diagnostics = _layout_diagnostics(document, rendered.layout, render.node_map)
+    def page_ok(pl) -> bool:
+        return pl.fits and pl.block_count == expected_blocks.get(pl.index, -1)
+
+    trace.initial_fits = all(
+        page_ok(p) for p in rendered.layout.pages
+    ) and rendered.layout.physical_page_count == len(document.pages)
+
+    if not trace.initial_fits:
+        decisions_by_page = discover_auto_decisions(render, theme)
+        failing = [p for p in rendered.layout.pages if not page_ok(p)]
+        overflow_diags: list[Diagnostic] = []
+
+        for pl in failing:
+            decisions = decisions_by_page.get(pl.index, [])
+            if not decisions:
+                continue  # nothing auto to try — stays an overflow error
+            page_trace = CompositionPageTrace(
+                page_index=pl.index,
+                page_id=pl.page_id or f"page-{pl.index}",
+                decisions=decisions,
+                candidate_space=candidate_space_size(decisions),
+            )
+            trace.pages.append(page_trace)
+            if page_trace.candidate_space > MAX_COMPOSITION_CANDIDATES_PER_PAGE:
+                page_trace.outcome = "too-many-candidates"
+                first = decisions[0]
+                src = (
+                    render.node_map[first.node_id].node.source.path
+                    if first.node_id in render.node_map
+                    else document.manifest_path
+                )
+                locs = ", ".join(
+                    f"{d.node_id} line {d.line}" for d in decisions
+                )
+                overflow_diags.append(
+                    Diagnostic(
+                        src,
+                        first.line,
+                        first.col,
+                        f"page '{pl.page_id}' has too many automatic composition "
+                        f"combinations ({len(decisions)} auto decisions, "
+                        f"{page_trace.candidate_space} assignments > "
+                        f"{MAX_COMPOSITION_CANDIDATES_PER_PAGE}); make one or more "
+                        f"row split / compare layout / flow layout choices "
+                        f"explicit (auto nodes: {locs})",
+                    )
+                )
+                continue
+
+            assignments = enumerate_assignments(decisions)
+            page_trace.evaluated = len(assignments)
+            exp = expected_blocks.get(pl.index)
+            for order, assignment in enumerate(assignments):
+                # Evaluate under resolutions already selected for earlier
+                # pages: a block that cannot be placed escapes onto the
+                # next physical page and would contaminate this page's
+                # measurement. The preferred assignment is re-measured
+                # whenever the accumulated map is non-empty.
+                combined = {**preferred_map, **assignment}
+                if order == 0 and not preferred_map:
+                    pl_c = pl  # preferred already measured cleanly
+                else:
+                    _, cand_rendered = do_render(combined)
+                    pl_c = page_layout_for(cand_rendered.layout, pl.index)
+                ev = evaluate_candidate(
+                    pl_c, assignment, decisions, order,
+                    expected_blocks=exp,
+                )
+                page_trace.candidates.append(ev)
+
+            winner = select_winner(page_trace.candidates)
+            if winner is not None:
+                page_trace.selected = dict(winner.resolutions)
+                page_trace.selected_deviation_count = winner.deviation_count
+                preferred_map.update(winner.resolutions)
+            else:
+                best = select_best_non_fitting(page_trace.candidates)
+                if best is not None:
+                    page_trace.best_non_fitting = dict(best.resolutions)
+                first = decisions[0]
+                overflow_diags.append(
+                    Diagnostic(
+                        render.node_map[first.node_id].node.source.path,
+                        first.line,
+                        first.col,
+                        f"automatic composition evaluated "
+                        f"{page_trace.evaluated} assignments for page "
+                        f"'{pl.page_id}'; none fit this page",
+                    )
+                )
+
+        if preferred_map:
+            render, rendered = do_render(preferred_map)
+            # Stability check: the combined render must confirm every
+            # searched page's page-local evaluation.
+            for pt in trace.pages:
+                if pt.selected is None:
+                    continue
+                pl_f = page_layout_for(rendered.layout, pt.page_index)
+                if pl_f is None or not page_ok(pl_f):
+                    overflow_diags.append(
+                        Diagnostic(
+                            document.manifest_path,
+                            1,
+                            1,
+                            f"internal composition-stability error: page "
+                            f"'{pt.page_id}' selected assignment did not "
+                            f"reproduce in the final render",
+                        )
+                    )
+        diagnostics = _layout_diagnostics(
+            document, rendered.layout, render.node_map
+        )
+        diagnostics.extend(
+            _dropped_block_diagnostics(document, rendered.layout)
+        )
+        diagnostics.extend(overflow_diags)
+    else:
+        diagnostics = _layout_diagnostics(
+            document, rendered.layout, render.node_map
+        )
+
     return BuildResult(
         html=render.html,
         node_map=render.node_map,
@@ -99,7 +224,36 @@ def build_document(
         layout=rendered.layout,
         rendered=rendered,
         diagnostics=diagnostics,
+        composition=trace,
     )
+
+
+def _dropped_block_diagnostics(
+    document: Document, layout: DocumentLayout
+) -> list[Diagnostic]:
+    """The backend can silently drop a monolithic block that has no
+    fragmentainer left; missing authored content is an error, never a fit."""
+
+    diagnostics: list[Diagnostic] = []
+    for pl in layout.pages:
+        if pl.index >= len(document.pages):
+            continue
+        expected = len(document.pages[pl.index].children)
+        if pl.block_count >= expected:
+            continue
+        page_node = document.pages[pl.index]
+        diagnostics.append(
+            Diagnostic(
+                page_node.source.path,
+                page_node.source.start_line,
+                1,
+                f"page '{pl.page_id or page_node.page_id}' rendered "
+                f"{pl.block_count} of {expected} authored top-level blocks; "
+                f"{expected - pl.block_count} block(s) could not be placed "
+                f"on the fixed page",
+            )
+        )
+    return diagnostics
 
 
 def _layout_diagnostics(

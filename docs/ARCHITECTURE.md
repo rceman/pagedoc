@@ -212,8 +212,9 @@ performs `HTML(...).render()` once and returns a `RenderedDocument`
 wrapping the resulting WeasyPrint `Document`; diagnostics are computed
 from that Document's box tree and `write_pdf`/`pdf_bytes` serialize the
 same Document. The PDF is never produced by re-laying out the HTML. A
-normal document therefore needs exactly one layout pass; the bounded
-`auto` orientation fallback adds at most one corrected pass.
+document whose preferred composition already fits needs exactly one
+layout pass; overflow recovery adds bounded candidate passes plus the
+final authoritative render (see section 10).
 
 A lightweight preflight may catch obviously invalid structures, but it must not become a divergent duplicate renderer.
 
@@ -234,12 +235,43 @@ Conceptually each rendered block has:
 
 `flow layout="auto"` may choose a horizontal or vertical presentation through a deterministic rule.
 
-M2's `auto` fallback for `compare`/`flow` is deliberately bounded: the
-first pass renders them horizontal; if the page overflows, all
-still-horizontal `auto` nodes on failing pages flip to vertical and the
-document is laid out once more. M2 does **not** evaluate each candidate
-orientation independently — per-component candidate scoring and optimal
-composition are M3 scope.
+### Automatic composition (M3.1)
+
+`row split="auto"`, `compare layout="auto"`, and `flow layout="auto"`
+resolve by real fit, evaluated exclusively through the authoritative
+backend — never by Python-side text measurement:
+
+1. The initial pass renders every `auto` decision at its
+   registry-preferred value (child-type rules for rows, `horizontal`
+   for compare/flow). Pages that then fit are never recomposed.
+2. Each overflowing page enters a **page-local exact search**: the
+   Cartesian product of that page's auto-decision candidates, hard
+   limit `MAX_COMPOSITION_CANDIDATES_PER_PAGE = 24` complete
+   assignments including the preferred one. Larger spaces fail with an
+   actionable diagnostic instead of heuristic search.
+3. Every candidate assignment is rendered and measured through
+   WeasyPrint. Fitting beats non-fitting; among fitting assignments the
+   winner minimizes, lexicographically: deviations from the preferred
+   composition, real `content_used`, then stable enumeration order.
+4. Explicit authored values (`split="equal"`, `layout="vertical"`, ...)
+   never participate and are never overridden.
+5. Candidates are evaluated with earlier pages' already-selected
+   resolutions applied — a block that cannot be placed on its fixed
+   page escapes onto the next physical page and would otherwise
+   contaminate downstream measurement. A page whose measured block
+   count is short of its authored top-level children is never "fit".
+6. After all failing pages resolve, one **final full-document render**
+   with the combined resolution map is measured and emitted; a page
+   whose selected assignment does not reproduce there reports an
+   internal composition-stability error.
+
+A structured `CompositionTrace` (JSON-serializable, timestamp-free)
+records decisions, candidate space, evaluated measurements, and the
+selected resolution per searched page, exposed via `pagedoc inspect`.
+
+Historical note: M2 used a coarse fallback — every still-horizontal
+`auto` node on a failing page flipped to vertical in a single extra
+pass. M3.1 replaces it with the bounded per-component search above.
 
 Any automatic choice must be reproducible for identical source, theme, engine version, and local assets.
 
