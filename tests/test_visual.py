@@ -215,3 +215,96 @@ def test_fixture_svgs_contain_no_text_elements():
         if name.endswith(".svg"):
             total += len(re.findall(r"<text[\\s>]", open(os.path.join(assets, name)).read()))
     assert total == 0, f"expected 0 <text> elements in fixture SVGs, found {total}"
+
+
+# ---------------- M2-005: Book shell cross-renderer validation ---------------
+
+BOOK_MANIFEST = os.path.join(VP, "..", "layout-gallery", "document-book-v2.yaml")
+
+
+def _blob_center(img, rgb, box, tol=24):
+    """Center (in CSS px) of the color blob inside box (CSS px on the
+    2500x2500 page) using a mode-1 mask and bbox center."""
+    from PIL import ImageChops
+
+    s = img.size[0] / 2500
+    crop = img.crop(tuple(int(v * s) for v in box)).convert("RGB")
+
+    def ch(c, t):
+        return c.point(lambda p: 255 if abs(p - t) <= tol else 0).convert("1")
+
+    mask = ImageChops.logical_and(
+        ImageChops.logical_and(
+            ch(crop.getchannel("R"), rgb[0]), ch(crop.getchannel("G"), rgb[1])
+        ),
+        ch(crop.getchannel("B"), rgb[2]),
+    )
+    bb = mask.getbbox()
+    if not bb:
+        return None
+    return (box[0] + (bb[0] + bb[2]) / 2 / s, box[1] + (bb[1] + bb[3]) / 2 / s)
+
+
+@pytest.mark.skipif(
+    not (raster.pdfium_available() and raster.mupdf_available()),
+    reason="needs pypdfium2 + pymupdf",
+)
+def test_book_markers_concentric_both_renderers(tmp_path):
+    """Sidebar markers: outer/inner centers must coincide in both
+    renderers at 288 DPI (<=1 raster px same-renderer, <=2 cross)."""
+    from pagedoc.pipeline import build_document
+
+    doc = load_document(BOOK_MANIFEST, get_registry())
+    theme = load_theme(doc.theme, doc.manifest_dir)
+    build = build_document(doc, theme)
+    pdf = tmp_path / "book.pdf"
+    build.rendered.write_pdf(str(pdf))
+
+    scale = 288 / 72  # 1 css px = 3 raster px at 288dpi
+    results = {}
+    for name, fn in (("pdfium", raster.rasterize_pdfium),
+                     ("mupdf", raster.rasterize_mupdf)):
+        img = fn(str(pdf), 288)[0]
+        for label, (cx, cy) in (("top", (125, 125)), ("bottom", (125, 2375))):
+            box = (cx - 40, cy - 40, cx + 40, cy + 40)
+            oc = _blob_center(img, (250, 208, 125), box)
+            ic = _blob_center(img, (15, 17, 27), box)
+            assert oc and ic, (name, label)
+            assert abs(oc[0] - ic[0]) * scale <= 1.0 + 0.5
+            assert abs(oc[1] - ic[1]) * scale <= 1.0 + 0.5
+            results.setdefault(label, {})[name] = oc
+    for label in ("top", "bottom"):
+        po = results[label]["pdfium"]
+        mo = results[label]["mupdf"]
+        assert abs(po[0] - mo[0]) * scale <= 2.0 + 0.5
+        assert abs(po[1] - mo[1]) * scale <= 2.0 + 0.5
+
+
+@pytest.mark.skipif(
+    not (raster.pdfium_available() and raster.mupdf_available()),
+    reason="needs pypdfium2 + pymupdf",
+)
+def test_book_footer_logo_renders_both_renderers(tmp_path):
+    """Supplied masked-SVG logo must render (not blank/black) in both
+    PDFium and MuPDF at the footer logo bounds (page-rel 292..430 x,
+    2298..2452 y)."""
+    from pagedoc.pipeline import build_document
+
+    doc = load_document(BOOK_MANIFEST, get_registry())
+    theme = load_theme(doc.theme, doc.manifest_dir)
+    build = build_document(doc, theme)
+    pdf = tmp_path / "book.pdf"
+    build.rendered.write_pdf(str(pdf))
+    for name, fn in (("pdfium", raster.rasterize_pdfium),
+                     ("mupdf", raster.rasterize_mupdf)):
+        img = fn(str(pdf), 96)[0].convert("RGB")
+        crop = img.crop((292, 2298, 430, 2452))
+        colors = crop.getcolors(crop.width * crop.height)
+        distinct = len(colors)
+        # logo has blue border + white face + dark shield + gray patch
+        assert distinct > 20, (name, distinct)
+        px = crop.load()
+        # blue border around shield top edge
+        bluish = [c for c, v in colors if v[2] > 150 and v[0] < 80]
+        whitish = [c for c, v in colors if min(v) > 220]
+        assert bluish and whitish, (name, "missing logo colors")

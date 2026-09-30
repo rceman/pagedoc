@@ -132,7 +132,7 @@ def _load_theme_text(theme_text: str, theme_path: str, theme_dir: str) -> Theme:
             raise _err(theme_path, f"theme CSS file not found: '{css_ref}'")
         with open(css_path, "r", encoding="utf-8") as f:
             css_text = f.read()
-        _check_css_is_local(css_text, css_path)
+        css_text = _check_css_is_local(css_text, css_path)
 
     return Theme(
         id=theme_id,
@@ -151,34 +151,88 @@ def _is_remote(value: str) -> bool:
     return "://" in value or value.startswith("//")
 
 
-# Remote references inside theme CSS: @import with a URL, or url(...) whose
-# target has a scheme/protocol-relative host. Local relative paths, data:
-# URLs, and fragment references (#id) are allowed. Local url() targets are
-# not rebased in M2 — keep theme CSS free of external-image dependencies
-# (documented in THEME_SPEC).
+# Theme-local CSS asset policy: url() targets may be data: URIs, #fragment
+# references, or local relative image paths inside the theme directory.
+# Local images are inlined as deterministic base64 data: URIs so rendered
+# HTML stays self-contained and free of absolute machine paths. Remote
+# URLs, file: URLs, absolute paths, paths escaping the theme dir, missing
+# files, non-image targets, and @import are rejected.
+import base64 as _base64
 import re as _re
 
-_CSS_URL_RE = _re.compile(r"url\(\s*['\"]?\s*([^)'\"\s]+)")
-_CSS_IMPORT_RE = _re.compile(r"@import\s+(?:url\(\s*)?['\"]?([^'\"\s)]+)")
-_CSS_FORBIDDEN_SCHEMES = ("http:", "https:", "//")
+_CSS_URL_RE = _re.compile(r"url\(\s*(['\"]?)([^)'\"]+)\1\s*\)")
+_CSS_IMPORT_RE = _re.compile(r"@import\b")
+_CSS_IMAGE_TYPES = {
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+}
 
 
-def _check_css_is_local(css_text: str, css_path: str) -> None:
+def _check_css_is_local(css_text: str, css_path: str) -> str:
+    """Validate a theme stylesheet and inline local image assets.
+
+    Returns rewritten CSS where every permitted local image url() is a
+    deterministic base64 data: URI. Raises PageDocError on remote,
+    filesystem-absolute, escaping, or missing references.
+    """
+
+    if _CSS_IMPORT_RE.search(css_text):
+        raise _err(
+            css_path,
+            "theme CSS @import is not supported; keep the theme a single "
+            "local stylesheet",
+        )
+
+    out: list[str] = []
+    pos = 0
     for m in _CSS_URL_RE.finditer(css_text):
-        target = m.group(1)
-        if target.startswith(_CSS_FORBIDDEN_SCHEMES):
-            raise _err(
-                css_path,
-                f"theme CSS must not reference remote resources: '{target}'",
-            )
-    for m in _CSS_IMPORT_RE.finditer(css_text):
-        target = m.group(1)
-        if target.startswith(_CSS_FORBIDDEN_SCHEMES):
-            raise _err(
-                css_path,
-                f"theme CSS @import must not reference remote resources: "
-                f"'{target}'",
-            )
+        out.append(css_text[pos : m.start()])
+        target = m.group(2).strip()
+        out.append(_resolve_css_url(target, css_path))
+        pos = m.end()
+    out.append(css_text[pos:])
+    return "".join(out)
+
+
+def _resolve_css_url(target: str, css_path: str) -> str:
+    if target.startswith("data:") or target.startswith("#"):
+        return f'url("{target}")'
+    if "://" in target or target.startswith(("//", "file:")):
+        raise _err(
+            css_path,
+            f"theme CSS must not reference remote or file:// resources: "
+            f"'{target}'",
+        )
+    theme_dir = os.path.dirname(css_path)
+    if os.path.isabs(target):
+        raise _err(
+            css_path,
+            f"theme CSS asset must be relative to the theme directory: "
+            f"'{target}'",
+        )
+    resolved = os.path.normpath(os.path.join(theme_dir, target))
+    if resolved != theme_dir and not resolved.startswith(theme_dir + os.sep):
+        raise _err(
+            css_path,
+            f"theme CSS asset escapes the theme directory: '{target}'",
+        )
+    if not os.path.isfile(resolved):
+        raise _err(
+            css_path, f"theme CSS asset not found: '{target}'"
+        )
+    mime = _CSS_IMAGE_TYPES.get(os.path.splitext(target)[1].lower())
+    if mime is None:
+        raise _err(
+            css_path,
+            f"theme CSS asset must be an image "
+            f"({', '.join(sorted(_CSS_IMAGE_TYPES))}): '{target}'",
+        )
+    with open(resolved, "rb") as f:
+        encoded = _base64.b64encode(f.read()).decode("ascii")
+    return f'url("data:{mime};base64,{encoded}")'
 
 
 def _number(mapping: dict, key: str, path: str, ctx: str) -> float:

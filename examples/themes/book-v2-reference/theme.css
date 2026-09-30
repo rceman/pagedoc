@@ -41,100 +41,133 @@ body {
 .pd-region { position: absolute; }
 
 /* ---- sidebar (x0 w250, full height) ------------------------------------ */
-/* Sidebar markers are pure CSS box geometry: a filled disc (background)
-   plus a ring (border) on the same border-radius box — the ring and dot
-   share the box's center by construction, never font metrics. */
+/* Both markers use the same theme-local SVG asset (48x48 viewBox, outer
+   and inner circles share cx=24 cy=24 — concentric by construction). */
 .pd-region-sidebar {
   background-color: var(--pd-shell);
 }
 .pd-region-sidebar::after {
   content: "";
   position: absolute;
-  top: 118px; left: 103px;
-  width: 20px; height: 20px;
-  background: var(--pd-green);
-  border: 12px solid var(--pd-gold);
-  border-radius: 50%;
+  left: 101px; top: 101px;
+  width: 48px; height: 48px;
+  background-image: url("assets/sidebar-marker.svg");
+  background-repeat: no-repeat; background-size: 48px 48px;
 }
-/* bottom marker lives on the page shell (same box geometry) */
+/* bottom marker lives on the page shell — same asset, same geometry */
 .pd-page::after {
   content: "";
   position: absolute;
-  bottom: 118px; left: 103px;
-  width: 20px; height: 20px;
-  background: var(--pd-green);
-  border: 12px solid var(--pd-gold);
-  border-radius: 50%;
+  left: 101px; bottom: 101px;
+  width: 48px; height: 48px;
+  background-image: url("assets/sidebar-marker.svg");
+  background-repeat: no-repeat; background-size: 48px 48px;
 }
 .pd-region-sidebar::before {
   content: "ETHICAL HACKING";
   position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%) rotate(-90deg);
+  left: 48px; top: 1607px;
+  transform: rotate(-90deg);
+  transform-origin: left top;
   white-space: nowrap;
-  font-weight: 700; font-size: 44px; letter-spacing: 0.3em;
-  color: var(--pd-white);
+  font-family: var(--pd-font-mono, monospace);
+  font-weight: 400; font-size: 80px;
+  color: var(--pd-gold);
 }
 
 /* ---- header (x250 y0 w2250 h513) ------------------------------------- */
 /* Upper 250px: dark shell, centered white group/chapter.
-   Lower 263px: black, centered blue page title. */
-.pd-region-header { border-bottom: 4px solid var(--pd-blue); }
+   Lower 263px: black, centered blue page title. Regular weight only. */
 .pd-page-group {
   position: absolute; top: 0; left: 0; right: 0; height: 250px;
   margin: 0; padding: 0 60px;
   display: flex; align-items: center; justify-content: center;
   background: var(--pd-shell);
-  font-size: 150px; line-height: 1.05;
-  font-weight: 700; letter-spacing: 0.04em;
-  text-transform: uppercase; text-align: center;
+  font-family: var(--pd-font-prose, sans-serif);
+  font-size: 150px; font-weight: 400; line-height: 1.05;
+  letter-spacing: normal;
+  text-align: center;
   color: var(--pd-white);
 }
 .pd-page-title {
   position: absolute; top: 250px; left: 0; right: 0; bottom: 0;
   margin: 0; padding: 0 60px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 110px; line-height: 1.1;
-  font-weight: 700; text-align: center;
+  font-family: var(--pd-font-prose, sans-serif);
+  font-size: 110px; font-weight: 400; line-height: 120px;
+  text-align: center;
   color: var(--pd-blue);
 }
 
 /* ---- footer (x250 y2250 w2250 h250) ----------------------------------- */
+/* Absolute theme-owned composition over the generic footer DOM:
+   .pd-page-doc          -> hidden page id + logo + subtitle pseudos
+   .pd-region-footer::*  -> brand + disclaimer
+   .pd-page-number       -> single visible page counter               */
+
+.pd-document { counter-reset: pd-book-page; }
+.pd-page { counter-increment: pd-book-page; }
 
 .pd-region-footer {
-  display: flex; align-items: center; gap: 60px;
-  padding: 0 60px;
   background: var(--pd-shell);
-  border-top: 4px solid var(--pd-blue);
 }
-.pd-region-footer::before {
-  content: "#BUGBOUNTY\A Tips and Tricks Vol.1";
-  white-space: pre-line;
-  font-weight: 700; font-size: 34px; line-height: 1.25;
-  color: var(--pd-gold);
-  flex: 1 1 auto;
-}
+
+/* logo: theme-local SVG asset, placed at footer-relative 42,48 138x154 */
 .pd-page-doc {
+  font-size: 0; /* keep the authored page id in the DOM, hide visually */
+}
+.pd-page-doc::before {
+  content: "";
+  position: absolute;
+  left: 42px; top: 48px;
+  width: 138px; height: 154px;
+  background-image: url("assets/footer-logo.svg");
+  background-repeat: no-repeat; background-size: 138px 154px;
+}
+.pd-page-doc::after {
+  content: "Tips and Tricks Vol.1";
+  position: absolute;
+  left: 822px; top: 150px;
+  white-space: nowrap;
   font-family: var(--pd-font-mono, monospace);
-  font-size: 26px; color: var(--pd-muted);
-  flex: 0 1 auto;
+  font-weight: 400; font-size: 48px;
+  color: var(--pd-gold);
+}
+
+.pd-region-footer::before {
+  content: "#BUGBOUNTY";
+  position: absolute;
+  left: 764px; top: 18px;
+  white-space: nowrap;
+  font-family: var(--pd-font-mono, monospace);
+  font-weight: 400; font-size: 120px; line-height: 120px;
+  color: var(--pd-gold);
 }
 .pd-region-footer::after {
   content: "FOR EDUCATIONAL\A PURPOSES ONLY";
+  position: absolute;
+  left: 1547px; top: 52px;
+  width: 414px; height: 153px;
+  border: 6px solid var(--pd-red);
+  display: flex; align-items: center; justify-content: center;
   white-space: pre-line;
-  border: 3px solid var(--pd-red);
-  border-radius: 8px;
-  padding: 8px 22px;
-  font-size: 24px; font-weight: 700; line-height: 1.2;
+  font-family: var(--pd-font-mono, monospace);
+  font-weight: 400; font-size: 40px; line-height: 50px;
   text-align: center;
   color: var(--pd-red);
-  flex: 0 0 auto;
 }
+
+/* visible footer shows only the single page number */
 .pd-page-number {
+  font-size: 0; /* generic "N / 10" stays in the DOM but not visible */
+}
+.pd-page-number::before {
+  content: counter(pd-book-page);
+  position: absolute;
+  right: 100px; top: 35px;
   font-family: var(--pd-font-mono, monospace);
-  font-size: 44px; font-weight: 700;
+  font-weight: 400; font-size: 120px; line-height: 120px;
   color: var(--pd-blue);
-  flex: 0 0 auto;
 }
 
 .pd-page-content > * { margin: 0 0 25px; }

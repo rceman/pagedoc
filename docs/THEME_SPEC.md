@@ -258,14 +258,16 @@ The theme loader enforces:
 - spacing values must be non-negative numbers;
 - split ratios must be lists of >= 2 positive numbers;
 - local CSS exists; font `source` files exist and are local;
-- theme CSS must not contain remote resources — `url(http...)`,
-  `url(//cdn...)`, and `@import` of remote URLs are rejected at load
-  time; local relative `url()`, `data:` URIs, and `#fragment`
-  references are allowed. M2 does not rebase `url()` paths inside
-  theme CSS: such URLs resolve against the document's base directory,
-  so a theme shared across documents should avoid CSS image
-  dependencies entirely (the Book v2 reference theme is pure CSS
-  geometry + pinned fonts);
+- theme CSS `url()` values are resolved relative to the **theme
+  directory** (not the document): local relative image assets
+  (svg/png/jpg/jpeg/webp) are inlined as deterministic base64 `data:`
+  URIs, so rendered HTML is self-contained and carries no machine
+  paths. `data:` URIs and `#fragment` references pass through
+  unchanged. Rejected with diagnostics: `http:`/`https:`/`//`
+  remotes, `file:` URLs, absolute paths, `..` traversal outside the
+  theme directory, missing files, and non-image targets;
+- `@import` in theme CSS is rejected outright (no recursive
+  stylesheet loading in M2);
 - no remote font/import dependency is required;
 - deterministic asset resolution.
 
