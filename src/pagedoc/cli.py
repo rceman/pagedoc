@@ -5,6 +5,11 @@
     pagedoc render <document.yaml>             --html-out/--pdf-out (>=1)
     pagedoc inspect <document.yaml> [--json]   deterministic layout report
 
+The CLI is a thin adapter over the supported public API
+(pagedoc.compile_document / inspect_document / lint_document); it owns
+no parallel document/theme/build orchestration. ``ast`` is a developer
+command and may use the parser directly.
+
 Authoring and layout failures are reported as path:line:col diagnostics
 without Python tracebacks (--verbose/-v shows the traceback for debugging).
 """
@@ -12,19 +17,14 @@ without Python tracebacks (--verbose/-v shows the traceback for debugging).
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import sys
 import traceback
-from typing import Any
 
+from .api import compile_document, inspect_document, lint_document
 from .ast import dumps_page
-from .document import load_document
 from .errors import PageDocError
 from .parser import parse_page_file
-from .pipeline import BuildResult, build_document
 from .registry import get_registry
-from .theme.loader import load_theme
 from .validation import validate_page
 
 
@@ -33,18 +33,13 @@ def _print_diagnostics(e: PageDocError) -> None:
         print(f"{d.path}:{d.line}:{d.col}: {d.message}", file=sys.stderr)
 
 
-def _print_diagnostic_list(diagnostics) -> None:
-    for d in diagnostics:
-        print(f"{d.path}:{d.line}:{d.col}: {d.message}", file=sys.stderr)
-
-
 def _cmd_lint(args) -> int:
     try:
-        doc = load_document(args.document, get_registry())
+        result = lint_document(args.document)
     except PageDocError as e:
         _print_diagnostics(e)
         return 1
-    print(f"{args.document}: OK ({len(doc.pages)} pages)")
+    print(f"{args.document}: OK ({result.page_count} pages)")
     return 0
 
 
@@ -69,106 +64,49 @@ def _cmd_render(args) -> int:
             file=sys.stderr,
         )
         return 1
-    registry = get_registry()
     try:
-        doc = load_document(args.document, registry)
-        theme = load_theme(doc.theme, doc.manifest_dir)
-        build = build_document(doc, theme, registry)
+        compiled = compile_document(args.document)
     except PageDocError as e:
         _print_diagnostics(e)
         return 1
     if args.html_out:
-        out_dir = os.path.dirname(args.html_out)
-        if out_dir:
-            os.makedirs(out_dir, exist_ok=True)
-        with open(args.html_out, "w", encoding="utf-8", newline="\n") as f:
-            f.write(build.html)
-        print(f"wrote {args.html_out} ({len(doc.pages)} pages)")
-    if build.diagnostics:
-        _print_diagnostic_list(build.diagnostics)
+        compiled.write_html(args.html_out)
+        print(f"wrote {args.html_out} ({compiled.pages_logical} pages)")
+    if not compiled.fits:
+        _print_diagnostics(PageDocError(list(compiled.diagnostics)))
         return 1
-    pdf_path = args.pdf_out
-    if pdf_path:
-        out_dir = os.path.dirname(pdf_path)
-        if out_dir:
-            os.makedirs(out_dir, exist_ok=True)
-        # Serialize the SAME rendered document that was measured.
-        build.rendered.write_pdf(pdf_path)
-        print(f"wrote {pdf_path} ({len(doc.pages)} pages)")
+    if args.pdf_out:
+        compiled.write_pdf(args.pdf_out)
+        print(f"wrote {args.pdf_out} ({compiled.pages_logical} pages)")
     if args.flattened_pdf_out:
-        from .flatten import flatten_document_pdf
-
         try:
-            flatten_document_pdf(build.rendered, args.flattened_pdf_out, dpi=args.flatten_dpi)
+            compiled.write_flattened_pdf(
+                args.flattened_pdf_out, dpi=args.flatten_dpi
+            )
         except PageDocError as e:
             _print_diagnostics(e)
             return 1
         print(
-            f"wrote {args.flattened_pdf_out} ({len(doc.pages)} pages, "
+            f"wrote {args.flattened_pdf_out} ({compiled.pages_logical} pages, "
             f"{args.flatten_dpi} dpi, experimental)"
         )
     return 0
 
 
-def _inspect_payload(doc, build: BuildResult, theme) -> dict[str, Any]:
-    pages: list[dict[str, Any]] = []
-    for pl in build.layout.pages:
-        resolved: dict[str, str] = {}
-        for key, value in sorted(build.resolved.items()):
-            node_id, what = key.rsplit(":", 1)
-            ref = build.node_map.get(node_id)
-            if ref is not None and ref.page_index == pl.index:
-                resolved[node_id] = value
-        pages.append(
-            {
-                "index": pl.index,
-                "page_id": pl.page_id,
-                "fit": pl.fits,
-                "blocks": pl.block_count,
-                "content_used_px": (
-                    round(pl.content_used, 1) if pl.content_used is not None else None
-                ),
-                "content_available_px": (
-                    round(pl.content_available, 1)
-                    if pl.content_available is not None
-                    else None
-                ),
-                "overflow_px": round(pl.overflow_px, 1),
-                "width_overflow_px": round(pl.width_overflow_px, 1),
-                "overflow_node": pl.overflow_node_id,
-                "overflow_axis": pl.overflow_axis,
-                "last_block": pl.last_block_id,
-                "resolved": resolved,
-            }
-        )
-    return {
-        "document": doc.doc_id,
-        "manifest": doc.manifest_path,
-        "theme": theme.id,
-        "typography_portable": theme.typography_portable,
-        "pages_logical": len(doc.pages),
-        "pages_physical": build.layout.physical_page_count,
-        "all_fit": build.layout.all_fit
-        and build.layout.physical_page_count == len(doc.pages),
-        "composition": build.composition.to_dict(),
-        "pages": pages,
-    }
-
-
 def _cmd_inspect(args) -> int:
-    registry = get_registry()
     try:
-        doc = load_document(args.document, registry)
-        theme = load_theme(doc.theme, doc.manifest_dir)
-        build = build_document(doc, theme, registry)
+        report = inspect_document(args.document)
     except PageDocError as e:
         _print_diagnostics(e)
         return 1
-    payload = _inspect_payload(doc, build, theme)
+    payload = report.to_dict()
     if args.json:
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        sys.stdout.write(report.to_json())
     else:
-        print(f"document: {doc.doc_id} ({payload['pages_physical']} physical pages)")
+        print(
+            f"document: {report.document_id} "
+            f"({report.pages_physical} physical pages)"
+        )
         for p in payload["pages"]:
             fit = "PASS" if p["fit"] else "FAIL"
             used = p["content_used_px"]
@@ -207,9 +145,9 @@ def _cmd_inspect(args) -> int:
                     print("      too many combinations; make choices explicit")
                 else:
                     print("      no fitting assignment found")
-    if build.diagnostics:
-        _print_diagnostic_list(build.diagnostics)
-    return 0 if payload["all_fit"] else 1
+    for d in payload["diagnostics"]:
+        print(f"{d['path']}:{d['line']}:{d['col']}: {d['message']}", file=sys.stderr)
+    return 0 if report.all_fit else 1
 
 
 def _parser() -> argparse.ArgumentParser:

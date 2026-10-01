@@ -80,7 +80,9 @@ python3 -m venv .venv
 ```
 
 Package layout: `src/pagedoc/` (`errors`, `ast`, `attributes`, `markdown`,
-`parser`, `registry`, `validation`, `document`, `pipeline`, `theme/` —
+`parser`, `registry`, `validation`, `document`, `pipeline`, `api` —
+supported public surface, `inspection` — versioned inspection schema,
+`theme/` —
 incl. `theme/builtin/` reference theme, `render/`, `backends/` —
 WeasyPrint adapter, `cli`). The serialized AST node vocabulary is
 documented in `docs/AST_FORMAT.md`. WeasyPrint is the single

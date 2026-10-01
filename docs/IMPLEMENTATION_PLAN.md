@@ -170,10 +170,29 @@ Acceptance includes representative fixtures for:
 - `examples/composition-gallery/` acceptance corpus and
   `scripts/benchmark_composition.py` instrumentation.
 
-### M3.2/M3.3 — later work
+### M3.2 — implemented: public integration surface
+
+- supported public API in `src/pagedoc/api.py`:
+  `compile_document`, `inspect_document`, `lint_document` returning
+  `CompiledDocument`, `InspectionReport`, and `LintResult`;
+- `CompiledDocument` retains the measured backend document privately —
+  PDF serialization never performs a second layout pass, and
+  non-fitting builds refuse final PDF emission while remaining
+  inspectable (diagnostics + debug HTML);
+- immutable `ArtifactInfo` metadata (kind, path, bytes, SHA-256) and
+  atomic artifact writes (temp file + fsync + `os.replace`);
+- versioned deterministic inspection schema v1 in
+  `src/pagedoc/inspection.py` — `all_fit` reflects build diagnostics and
+  each page reports expected/rendered/missing block counts;
+- CLI refactored into a thin adapter over the public API with
+  byte-identical artifacts;
+- packaging polish: `LICENSE` (MIT), `py.typed`, metadata-backed
+  `pagedoc.__version__`, wheel verification;
+- `docs/PUBLIC_API.md` documents the supported surface.
+
+### M3.3 — later work
 
 - richer automatic composition and fit heuristics;
-- public Python package metadata polish;
 - external theme packages;
 - migration/import adapters;
 - richer inspection tooling.

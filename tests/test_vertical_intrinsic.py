@@ -150,7 +150,7 @@ def test_horizontal_flow_still_shares_width(tmp_path, theme_ref):
 
 def test_gallery_page6_no_text_overlap_pdf():
     """The reviewed defect: the corrected vertical compare on
-    cmp-multi-auto must have no inter-side text overlap in the emitted
+    cmp-long-compare-containment must have no inter-side text overlap in the emitted
     PDF (MuPDF text boxes)."""
 
     import pymupdf

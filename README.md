@@ -144,6 +144,29 @@ PageDoc v1 is not:
 
 One `.book.md` source file represents one logical fixed-size page in v1.
 
+## Python API
+
+Consumer projects integrate through the supported public surface — no
+CLI subprocess, no internal module imports:
+
+```python
+import pagedoc
+
+book = pagedoc.compile_document("document.yaml")
+
+if not book.fits:
+    for d in book.diagnostics:
+        print(d.format())
+    raise SystemExit(1)
+
+artifact = book.write_pdf("dist/book.pdf")
+print(artifact.sha256)
+```
+
+`pagedoc.lint_document` validates without layout, and
+`pagedoc.inspect_document` returns a versioned, deterministic
+inspection report. See `docs/PUBLIC_API.md` for the full contract.
+
 ## Development
 
 No GitHub Actions are required for the initial implementation. Validation should be runnable locally and deterministically.

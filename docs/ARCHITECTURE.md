@@ -62,13 +62,39 @@ PageDoc does not own:
 - consumer-specific sanitization;
 - remote asset acquisition.
 
+### Integration boundary
+
+Consumers enter only through `pagedoc`'s public API (M3.2):
+
+```text
+consumer code
+    -> pagedoc.compile_document / inspect_document / lint_document
+        -> document/theme/pipeline internals
+            -> authoritative measured backend document
+                -> deterministic artifacts + inspection report
+```
+
+`CompiledDocument` retains the measured backend document privately;
+`pdf_bytes()`/`write_pdf()` serialize it directly, and the optional
+flattened PDF rasterizes the canonical vector PDF — no path performs a
+second layout pass. Non-fitting builds return an inspectable
+`CompiledDocument` (`fits == False`, diagnostics, debug HTML) and
+refuse PDF emission. Artifact writes are atomic and return
+`ArtifactInfo` (path, byte count, SHA-256).
+
+The CLI is a public-API adapter, not a second orchestration
+implementation; `pagedoc ast` is the only command that touches parser
+internals directly.
+
 ## 3. Suggested Python package shape
 
 The exact module names may evolve, but responsibilities should remain separated:
 
 ```text
 src/pagedoc/
-    cli.py
+    api.py           # supported public surface (M3.2)
+    inspection.py    # versioned deterministic inspection schema
+    cli.py           # thin adapter over api.py
     parser.py
     ast.py
     registry.py

@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Deterministic Markdown-first authoring and fixed-page rendering engine"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "markdown-it-py>=3.0,<5",
     "PyYAML>=6.0,<7",
@@ -31,6 +32,9 @@ raster = [
     "Pillow>=10,<12",
 ]
 
+[project.urls]
+Repository = "https://github.com/rceman/pagedoc"
+
 [project.scripts]
 pagedoc = "pagedoc.cli:main"
 
@@ -38,7 +42,12 @@ pagedoc = "pagedoc.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-pagedoc = ["theme/builtin/*.yaml", "theme/builtin/*.css", "theme/builtin/fonts/*"]
+pagedoc = [
+    "py.typed",
+    "theme/builtin/*.yaml",
+    "theme/builtin/*.css",
+    "theme/builtin/fonts/*",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

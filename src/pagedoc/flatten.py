@@ -107,6 +107,33 @@ def assemble_images_pdf(
     )
 
 
+def _flatten_vector_bytes(vector: bytes, dpi: int) -> bytes:
+    if isinstance(dpi, bool) or not isinstance(dpi, int) or dpi <= 0:
+        raise PageDocError(
+            Diagnostic(
+                "<flatten>",
+                1,
+                1,
+                f"flatten dpi must be a positive integer, got {dpi!r}",
+            )
+        )
+    images, sizes = rasterize_pdf_pages(vector, dpi)
+    return assemble_images_pdf(images, sizes, dpi)
+
+
+def flatten_document_pdf_bytes(
+    rendered: RenderedDocument, dpi: int = _DEFAULT_DPI
+) -> bytes:
+    """Flatten the measured/validated rendered document into image-only
+    PDF bytes — derived from the canonical vector PDF, never relaid out.
+
+    ``dpi`` must be a positive integer; invalid values fail before any
+    raster work.
+    """
+
+    return _flatten_vector_bytes(rendered.pdf_bytes(), dpi)
+
+
 def flatten_document_pdf(
     rendered: RenderedDocument, out_path: str, dpi: int = _DEFAULT_DPI
 ) -> tuple[int, int]:
@@ -114,8 +141,7 @@ def flatten_document_pdf(
     image-only PDF. Returns (vector_bytes, flattened_bytes)."""
 
     vector = rendered.pdf_bytes()
-    images, sizes = rasterize_pdf_pages(vector, dpi)
-    flat = assemble_images_pdf(images, sizes, dpi)
+    flat = _flatten_vector_bytes(vector, dpi)
     out_dir = os.path.dirname(out_path)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)

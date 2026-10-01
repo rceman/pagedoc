@@ -1,7 +1,7 @@
 ---
-id: cmp-multi-auto
+id: cmp-long-compare-containment
 group: Composition
-title: Multiple Independent Autos
+title: Long Compare Containment
 ---
 
 <compare layout="auto" labels="Before|After">
