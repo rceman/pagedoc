@@ -286,6 +286,66 @@ def test_all_fit_reflects_diagnostics():
     assert report.all_fit == compiled.fits is False
 
 
+# ---------------- report immutability ----------------------------------------
+
+
+def test_report_owns_constructor_payload():
+    """Deep mutation of the caller-owned payload after construction must
+    not alter the report."""
+    from pagedoc.inspection import InspectionReport
+
+    source = pagedoc.inspect_document(OVERFLOW_PROSE)
+    payload = source.to_dict()
+    report = InspectionReport(payload)
+    snapshot = report.to_json()
+
+    payload["document"] = "mutated"
+    payload["diagnostics"][0]["message"] = "mutated"
+    payload["pages"][0]["resolved"]["injected"] = "x"
+    payload["composition"]["layout_passes"] = -1
+    payload["pages"][0]["blocks_expected"] = -1
+    assert report.to_json() == snapshot
+
+
+def test_diagnostics_accessor_is_isolated():
+    """diagnostics returns frozen Diagnostic values; mutation attempts
+    fail and cannot touch report internals."""
+    report = pagedoc.inspect_document(OVERFLOW_PROSE)
+    snapshot = report.to_json()
+
+    diagnostics = report.diagnostics
+    assert diagnostics
+    assert all(isinstance(d, pagedoc.Diagnostic) for d in diagnostics)
+    with pytest.raises(Exception):  # frozen dataclass
+        diagnostics[0].message = "mutated"  # type: ignore[misc]
+    # second call returns an independent tuple of equal values
+    assert report.diagnostics == diagnostics
+    assert report.diagnostics is not diagnostics
+    assert report.to_json() == snapshot
+
+
+def test_to_dict_deep_mutation_isolated():
+    """Mutating every nested branch of a to_dict() result must leave the
+    report byte-stable."""
+    report = pagedoc.inspect_document(COMPOSITION)
+    snapshot = report.to_json()
+
+    payload = report.to_dict()
+    payload["document"] = "mutated"
+    payload["diagnostics"].append({"path": "x", "line": 1, "col": 1,
+                                   "message": "injected"})
+    payload["pages"][0]["resolved"]["injected"] = "x"
+    payload["pages"][0]["fit"] = "corrupted"
+    comp_page = payload["composition"]["pages"][0]
+    comp_page["selected"].clear()
+    comp_page["candidates"][0]["resolutions"].clear()
+    comp_page["decisions"][0]["candidates"].append("bogus")
+
+    assert report.to_json() == snapshot
+    # payload dicts are independent across calls too
+    assert report.to_dict()["document"] == "composition-gallery"
+
+
 # ---------------- CLI / API parity -------------------------------------------
 
 

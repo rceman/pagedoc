@@ -10,10 +10,12 @@ Schema version 1.
 
 from __future__ import annotations
 
+import copy
 import json
 from typing import Any
 
 from .document import Document
+from .errors import Diagnostic
 from .pipeline import BuildResult
 from .theme.model import Theme
 
@@ -84,12 +86,19 @@ def build_inspection(
 
 
 class InspectionReport:
-    """Immutable, deterministic inspection of a compiled document."""
+    """Immutable, deterministic inspection of a compiled document.
+
+    The constructor takes a deep defensive copy so no caller-owned or
+    consumer-mutated structure can alter the report. ``to_dict()``
+    returns an independent mutable copy for consumer processing;
+    ``to_json()`` is byte-stable regardless of what callers do to values
+    previously returned by the public API.
+    """
 
     __slots__ = ("_payload",)
 
     def __init__(self, payload: dict[str, Any]) -> None:
-        self._payload = dict(payload)
+        self._payload = copy.deepcopy(payload)
 
     # ---- scalar accessors -------------------------------------------------
     @property
@@ -121,12 +130,18 @@ class InspectionReport:
         return self._payload["all_fit"]
 
     @property
-    def diagnostics(self) -> tuple[dict[str, Any], ...]:
-        return tuple(self._payload["diagnostics"])
+    def diagnostics(self) -> tuple[Diagnostic, ...]:
+        """Frozen diagnostic values — never a view into mutable
+        report state. ``to_dict()``/``to_json()`` still serialize the
+        schema-v1 diagnostic mappings."""
+        return tuple(
+            Diagnostic(d["path"], d["line"], d["col"], d["message"])
+            for d in self._payload["diagnostics"]
+        )
 
     # ---- serialization ----------------------------------------------------
     def to_dict(self) -> dict[str, Any]:
-        """A defensive copy of the deterministic payload."""
+        """An independent deep copy of the deterministic payload."""
         return json.loads(self.to_json())
 
     def to_json(self) -> str:

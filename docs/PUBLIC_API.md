@@ -103,6 +103,13 @@ payload = report.to_dict()   # deterministic dict, schema_version == 1
 text    = report.to_json()   # sort_keys=True, trailing newline
 ```
 
+An `InspectionReport` is an immutable snapshot: it deep-copies its
+payload at construction, `report.diagnostics` returns frozen
+`Diagnostic` values (the schema-v1 JSON mappings are unaffected), and
+`to_dict()` returns an independent mutable copy for consumer
+processing — mutating any returned structure never modifies the
+report.
+
 Schema v1 payload keys: `schema_version`, `document`, `manifest`,
 `theme`, `typography_portable`, `pages_logical`, `pages_physical`,
 `all_fit`, `composition`, `diagnostics`, `pages`.
